@@ -1,0 +1,33 @@
+bump_version: null
+lint:
+  files_exist:
+  - conf/igenomes.config
+  - conf/igenomes_ignored.config
+  - assets/multiqc_config.yml
+  - conf/igenomes.config
+  - conf/igenomes_ignored.config
+  - assets/multiqc_config.yml
+  files_unchanged:
+  - .github/CONTRIBUTING.md
+  - assets/sendmail_template.txt
+  - .github/CONTRIBUTING.md
+  - assets/sendmail_template.txt
+  multiqc_config: false
+nf_core_version: 3.0.2
+org_path: null
+repository_type: pipeline
+template:
+  author: Evan B Freel, Emily E Conklin, Mykle L Hoban, Derek W Kraft, Jonathan L
+    Whitney, Ingrid SS Knapp, Zac H Forsman, Robert J Toonen
+  description: nextflow-enabled version of assessPool radseq processing pipeline
+  force: true
+  is_nfcore: true
+  name: assesspool
+  org: nf-core
+  outdir: .
+  skip_features:
+  - igenomes
+  - multiqc
+  - fastqc
+  version: 1.0.0dev
+update: null
