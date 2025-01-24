@@ -67,25 +67,32 @@ workflow PIPELINE_INITIALISATION {
     // Create channel from input file provided through params.input
     //
 
+
+    // def f = samplesheetToList(params.input, "${projectDir}/assets/schema_input.json")
+    // println(f)
+    // System.exit(0)
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
         .map {
-            meta, fastq_1, fastq_2 ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+            meta, vcf, ref, pops, pool_sizes ->
+                def pp = pops ? pops.split(/,/) : []
+                def ps = (pool_sizes instanceof Number) ? [pool_sizes] : pool_sizes.split(/,/)
+                //  && !(pool_sizes instanceOf Number) ? pool_sizes.split(/,/) : []
+                if (pp.size() != ps.size()) {
+                    // if (ps.size() != 1 && pp.size() != 0) {
+                    if (pp && ps.size() != 1) {
+                        error "Pool sizes must either be a single number or a list the same length as `populations`"
+                    } else if (pp && ps.size() == 1) {
+                        ps = [1..pp.size()].collect{ ps[0] }
+                    }
                 }
-        }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
-        .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
+                // return [ meta + [ populations: pops ? pops.split(/,/): [], pool_sizes: pool_sizes ? pool_sizes.split(/,/) : [] ],  vcf, ref  ]
+                return [ meta + [ populations: pp, pool_sizes: ps ],  vcf, ref  ]
         }
         .set { ch_samplesheet }
+
+
+    // System.exit(0)
 
     emit:
     samplesheet = ch_samplesheet
@@ -107,7 +114,7 @@ workflow PIPELINE_COMPLETION {
     outdir          //    path: Path to output directory where results will be published
     monochrome_logs // boolean: Disable ANSI colour codes in log output
     hook_url        //  string: hook URL for notifications
-    
+
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
@@ -168,8 +175,8 @@ def toolCitationText() {
     // Uncomment function in methodsDescriptionText to render in MultiQC report
     def citation_text = [
             "Tools used in the workflow included:",
-            
-            
+
+
             "."
         ].join(' ').trim()
 
@@ -181,8 +188,8 @@ def toolBibliographyText() {
     // Can use ternary operators to dynamically construct based conditions, e.g. params["run_xyz"] ? "<li>Author (2023) Pub name, Journal, DOI</li>" : "",
     // Uncomment function in methodsDescriptionText to render in MultiQC report
     def reference_text = [
-            
-            
+
+
         ].join(' ').trim()
 
     return reference_text

@@ -1,0 +1,56 @@
+process POOLFSTAT_FST {
+    tag "$meta.id"
+    label 'process_single'
+
+    // PR submitted to add r-poolfstat to conda-forge
+    // conda "${moduleDir}/environment.yml"
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    //     'https://depot.galaxyproject.org/singularity/YOUR-TOOL-HERE':
+    //     'biocontainers/YOUR-TOOL-HERE' }"
+    container 'quay.io/fishbotherer/poolfstat:1.0.0'
+
+    input:
+    tuple val(meta), path(sync)
+
+    output:
+    tuple val(meta), path('*.fst'), path('*global*.tsv'), emit: fst
+    path('*sliding*.tsv')                               , emit: sliding, optional: true
+    path 'versions.yml'                                , emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    def pool_sizes = meta.populations.collect{ it.value }.join(',')
+    def pool_names = meta.populations.collect{ it.key }.join(',')
+    """
+    poolfstat.R \\
+        ${args} \\
+        --pool-sizes ${pool_sizes} \\
+        --pool-names ${pool_names} \\
+        --prefix ${prefix} \\
+        --threads ${task.cpus}
+
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
+        poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
+    END_VERSIONS
+    """
+
+    stub:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    """
+    touch ${prefix}.fst
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
+        poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
+    END_VERSIONS
+    """
+}

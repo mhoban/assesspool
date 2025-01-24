@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconda::bioconductor-variantannotation=1.52.0
+  - conda-forge::r-tidyverse=2.0.0
+  - conda-forge::r-janitor=2.2.1
+  - conda-forge::r-optparse=1.7.5
