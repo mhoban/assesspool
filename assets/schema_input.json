@@ -7,27 +7,34 @@
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "project": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "errorMessage": "Project name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "vcf": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^\\S+\\.vcf(\\.gz)?$",
+                "errorMessage": "VCF file must be provided in the `vcf` column, cannot contain spaces, and must have extension '.vcf' or '.vcf.gz'"
             },
-            "fastq_2": {
+            "reference": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^\\S+\\.fa(s?ta)?(\\.gz)?$",
+                "errorMessage": "Reference FASTA must be provided in the `referece` column, cannot contain spaces, and must have extension '.fa/fa.gz' or '.fasta/fasta.gz'"
+            },
+            "populations": {
+                "type": "string"
+            },
+            "pool_sizes": {
+                "type": ["string","integer"],
+                "errorMessage": "Must provide pool size(s), either a single number or a comma-separated list"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["project", "reference","pool_sizes"]
     }
 }
