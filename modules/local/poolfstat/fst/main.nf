@@ -10,8 +10,7 @@ process POOLFSTAT_FST {
     container 'quay.io/fishbotherer/poolfstat:1.0.0'
 
     input:
-    tuple val(meta), path(sync)
-    val pool_sizes
+    tuple val(meta), path(sync), val(pool_sizes)
 
     output:
     tuple val(meta), path('*.fst'), path('*global*.tsv'), emit: fst

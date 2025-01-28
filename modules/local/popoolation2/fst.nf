@@ -10,8 +10,7 @@ process POPOOLATION2_FST {
         'biocontainers/popoolation2:1.201--pl5321hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(sync)
-    val pool_sizes
+    tuple val(meta), path(sync), val(pool_sizes)
 
     output:
     tuple val(meta), path("*.fst*"), emit: fst

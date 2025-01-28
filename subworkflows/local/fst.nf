@@ -18,15 +18,14 @@ workflow FST {
     // create split sync file channel
     PREPSYNC.out.split_sync
         .transpose()
-        .multiMap{ meta, sync ->
-            sync: [ meta, sync ]
-            pool_sizes: meta.pools.findAll { k, v -> sync =~ /\b${k}\b/}.sort { it.key }
+        .map { meta, sync ->
+            [ meta, sync, meta.pools.findAll { k, v -> sync =~ /\b${k}\b/}.sort { it.key } ]
         }
         .set { ch_sync }
 
     // run popoolation fst if requested
     if (params.popoolation2) {
-        POPOOLATION2_FST( ch_sync.sync, ch_sync.pool_sizes )
+        POPOOLATION2_FST( ch_sync )
         ch_versions = ch_versions.mix(POPOOLATION2_FST.out.versions.first())
     }
 
@@ -50,7 +49,7 @@ workflow FST {
 
     // run poolfstat fst if requested
     if (params.poolfstat) {
-        POOLFSTAT_FST( ch_sync.sync, ch_sync.pool_sizes )
+        POOLFSTAT_FST( ch_sync )
         ch_versions = ch_versions.mix(POOLFSTAT_FST.out.versions.first())
     }
 
