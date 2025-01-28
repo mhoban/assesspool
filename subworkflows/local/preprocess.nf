@@ -21,55 +21,66 @@ workflow PREPROCESS {
         .set { ch_vcf }
 
 
-    // get VCF sample names from header
+    // Get VCF sample names from header
     VCF_SAMPLES(ch_vcf.combine(Channel.fromPath('fake.tbi')),[],[],[]).output
         .splitText()
-        .map { meta, pop -> [ meta.id, pop.trim() ] }
+        .map { meta, pool -> [ meta.id, pool.trim() ] }
         .groupTuple()
-        .set { ch_samples }
+        .set { ch_samplenames }
     ch_versions = ch_versions.mix(VCF_SAMPLES.out.versions.first())
 
 
-    // smash VCF sample names into populations
-    // if they weren't specified in the samplesheet
+    // Extract VCF sample names and smash them into a pool map
     ch_vcf
         .map{ meta, vcf -> [ meta.id, meta, vcf ] }
-        .join(ch_samples)
-        .map { id, meta, vcf, pops ->
-            def pp = meta.populations ?: pops
-            def ps = meta.pool_sizes.size() > 1 ? meta.pool_sizes : (1..pops.size()).collect{ meta.pool_sizes[0] }
-            [ [ id: meta.id, populations: [pp,ps].transpose().collectEntries(), pop_map: [pops,pp].transpose().collectEntries() ], vcf ]
+        .join(ch_samplenames)
+        .map { id, meta, vcf, pools ->
+            def pp = meta.pools ?: pools
+            def ps = meta.pool_sizes.size() > 1 ? meta.pool_sizes : (1..pools.size()).collect{ meta.pool_sizes[0] }
+            [ [ id: meta.id, rename: meta.rename, pools: [pp,ps].transpose().collectEntries(), pool_map: [pools,pp].transpose().collectEntries() ], vcf ]
         }
         .set{ ch_vcf }
 
 
+    // Rename any VCF headers we were asked to
+    // ---------------------------------------
+    // First branch out which ones we need to rename
     ch_vcf
-        .map{ meta, vcf ->
-            meta.pop_map
-                .collect{ k, v -> "${k} ${v}\n"}
+        .branch { meta, vcf ->
+            rename: meta.rename
+            leave: !meta.rename
         }
-        .flatten()
-        .collectFile(name: "sample_remap.txt")
-        .ifEmpty(false)
+        .set{ ch_vcf }
+
+    // Create a sample name map file for bcftools reheader
+    ch_vcf.rename
+        // mapfiles named for meta.id
+        .collectFile { meta, vcf ->
+            [ "${meta.id}.map", meta.pool_map.collect{ k, v -> "${k} ${v}"}.join("\n") ]
+        }
+        // use mapfile basename for meta.id to join below
+        .map { f -> [ f.baseName, f ] }
         .set{ ch_remap }
 
-    ch_vcf
-        .combine(ch_remap)
-        .map{ meta, vcf, samples -> [ meta, vcf, [], samples ]}
-        .set{ ch_rename }
+    // Join sample map back to VCF channel
+    ch_vcf.rename
+        .map { meta, vcf -> [ meta.id, meta, vcf ] }
+        .join(ch_remap)
+        .map { id, meta, vcf, mapfile -> [ meta, vcf, [], mapfile ] }
+        .set{ ch_remap }
 
-    // TODO: use ext.when to control whether we rename or not
-    /* e.g.:
-    process {
-        withName: 'BAR' {
-            ext.when = { meta.rename }
-        }
-    }
-    */
-    VCF_RENAME(ch_rename,ch_vcf.map{ meta, vcf -> [meta,[]]})
-        .vcf
-        .set { ch_vcf }
+    // Do the renaming we need to do
+    VCF_RENAME(ch_remap,ch_remap.map{ [it[0],[]]}).vcf
+        .set { ch_remap }
+    // mix in versions.yml
     ch_versions = ch_versions.mix(VCF_RENAME.out.versions.first())
+    // ---------------------------------------
+
+    // Mix back in any renamed VCFs
+    ch_vcf.leave
+        .mix(ch_remap)
+        .set{ ch_vcf }
+
 
     emit:
     vcf = ch_vcf

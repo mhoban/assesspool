@@ -1,7 +1,6 @@
 channels:
   - conda-forge
   - bioconda
-  - pkgs/r
 dependencies:
   - conda-forge::r-optparse=1.7.5
-  # - conda-forge::r-poolfstat=3.0.0 (doesn't exist yet, PR submitted)
+  - conda-forge::r-poolfstat=3.0.0

@@ -11,6 +11,7 @@ process POPOOLATION2_FST {
 
     input:
     tuple val(meta), path(sync)
+    val pool_sizes
 
     output:
     tuple val(meta), path("*.fst*"), emit: fst
@@ -22,19 +23,19 @@ process POPOOLATION2_FST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def pool_sizes = meta.populations.collect{ it.value }.join(':')
-    def populations = combn(meta.populations.collect{ it.key }, 2).collect { it.join(':') }.join("\t")
+    def ps = pool_sizes.collect{ it.value }.join(':')
+    def pools = combn(pool_sizes.collect{ it.key }, 2).collect { it.join(':') }.join("\t")
     def hdr = task.ext.args2 ?: false
     """
     fst-sliding.pl \\
         --input ${sync} \\
         --output "${sync.BaseName}.fst" \\
-        --pool-size ${pool_sizes} \\
+        --pool-size ${ps} \\
         ${args}
 
     if ${hdr}; then
         for fst in *.fst; do
-            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${populations}' \$fst
+            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fst
         done
     fi
 

@@ -27,7 +27,7 @@
                 "pattern": "^\\S+\\.fa(s?ta)?(\\.gz)?$",
                 "errorMessage": "Reference FASTA must be provided in the `referece` column, cannot contain spaces, and must have extension '.fa/fa.gz' or '.fasta/fasta.gz'"
             },
-            "populations": {
+            "pools": {
                 "type": "string"
             },
             "pool_sizes": {

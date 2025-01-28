@@ -45,6 +45,7 @@ workflow ASSESSPOOL {
     ch_ref = PREPROCESS.out.ref
     ch_versions = ch_versions.mix(PREPROCESS.out.versions.first())
 
+
     // run filtering if desired
     if (params.filter) {
         FILTER(ch_vcf)

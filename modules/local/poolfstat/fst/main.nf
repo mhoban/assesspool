@@ -11,6 +11,7 @@ process POOLFSTAT_FST {
 
     input:
     tuple val(meta), path(sync)
+    val pool_sizes
 
     output:
     tuple val(meta), path('*.fst'), path('*global*.tsv'), emit: fst
@@ -23,15 +24,16 @@ process POOLFSTAT_FST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def pool_sizes = meta.populations.collect{ it.value }.join(',')
-    def pool_names = meta.populations.collect{ it.key }.join(',')
+    def ps = pool_sizes.collect{ it.value }.join(',')
+    def pn = pool_sizes.collect{ it.key }.join(',')
     """
     poolfstat.R \\
         ${args} \\
-        --pool-sizes ${pool_sizes} \\
-        --pool-names ${pool_names} \\
+        --pool-sizes ${ps} \\
+        --pool-names ${pn} \\
         --prefix ${prefix} \\
-        --threads ${task.cpus}
+        --threads ${task.cpus} \\
+        ${sync}
 
 
     cat <<-END_VERSIONS > versions.yml
