@@ -9,8 +9,7 @@ process GRENEDALF_FST {
         'biocontainers/grenedalf:0.6.2--hbefcdb2_1' }"
 
     input:
-    tuple val(meta), path(sync)
-    path(pool_sizes)
+    tuple val(meta), path(sync), path(pool_sizes)
 
     output:
     tuple val(meta), path("*fst.csv"), emit: fst

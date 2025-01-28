@@ -21,8 +21,8 @@ workflow FST {
         .multiMap{ meta, sync ->
             sync: [ meta, sync ]
             pool_sizes: meta.pools.findAll { k, v -> sync =~ /\b${k}\b/}.sort { it.key }
-        }.
-        set { ch_sync }
+        }
+        .set { ch_sync }
 
     // run popoolation fst if requested
     if (params.popoolation2) {
@@ -33,12 +33,18 @@ workflow FST {
     // run grenedalf fst if requested
     if (params.grenedalf) {
         PREPSYNC.out.combined_sync
-            .map { meta, sync -> meta.pools.collect { k, v -> "${k}\t${v}\n" } }
-            .flatten()
-            .collectFile(name: "pool_sizes.txt", cache: false)
+            .collectFile { meta, sync ->
+                [ "${meta.id}.ps", meta.pools.collect{ k, v -> "${k}\t${v}"}.join("\n") ]
+            }
+            .map { f -> [ f.baseName, f ] }
             .set { ch_poolsizes }
+        PREPSYNC.out.combined_sync
+            .map { meta,sync -> [ meta.id, meta, sync ] }
+            .join(ch_poolsizes)
+            .map { id, meta, sync, poolsize -> [ meta, sync, poolsize ] }
+            .set{ ch_gd }
 
-        GRENEDALF_FST( PREPSYNC.out.combined_sync, ch_poolsizes )
+        GRENEDALF_FST( ch_gd )
         ch_versions = ch_versions.mix(GRENEDALF_FST.out.versions.first())
     }
 
