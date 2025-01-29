@@ -1,3 +1,5 @@
+include { combn } from "./combn"
+
 process POPOOLATION2_FISHERTEST {
     tag "$meta.id"
     label 'process_single'
@@ -8,11 +10,12 @@ process POPOOLATION2_FISHERTEST {
         'biocontainers/popoolation2:1.201--pl5321hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(sync)
+    tuple val(meta), path(sync), val(pool_map)
 
     output:
-    tuple val(meta), path("*.fisher*"), emit: fisher
-    path "versions.yml"           , emit: versions
+    tuple val(meta), path("*.fisher"), emit: fisher
+    tuple val(meta), path("*.params"), emit: fisher_params
+    path "versions.yml"              , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,11 +23,19 @@ process POPOOLATION2_FISHERTEST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def hdr = task.ext.args2 ?: false
+    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') }.join("\t")
     """
     fisher-test.pl \\
-        --input ${sync} \\
+        --input "${sync}" \\
         --output "${sync.BaseName}.fisher" \\
         ${args}
+
+    if ${hdr}; then
+        for fisher in *.fisher; do
+            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
+        done
+    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -36,7 +47,7 @@ process POPOOLATION2_FISHERTEST {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${sync.BaseName}.bam
+    touch "${sync.BaseName}.fisher"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

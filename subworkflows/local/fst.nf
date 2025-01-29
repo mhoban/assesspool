@@ -1,7 +1,8 @@
-include { PREPSYNC   } from '../../modules/local/prepsync/main'
-include { POPOOLATION2_FST   } from '../../modules/local/popoolation2/fst.nf'
-include { GRENEDALF_FST   } from '../../modules/local/grenedalf/fst.nf'
-include { POOLFSTAT_FST   } from '../../modules/local/poolfstat/fst/main'
+include { PREPSYNC                } from '../../modules/local/prepsync/main'
+include { POPOOLATION2_FST        } from '../../modules/local/popoolation2/fst.nf'
+include { POPOOLATION2_FISHERTEST } from '../../modules/local/popoolation2/fishertest.nf'
+include { GRENEDALF_FST           } from '../../modules/local/grenedalf/fst.nf'
+include { POOLFSTAT_FST           } from '../../modules/local/poolfstat/fst/main'
 
 workflow FST {
     take:
@@ -19,7 +20,8 @@ workflow FST {
     PREPSYNC.out.split_sync
         .transpose()
         .map { meta, sync ->
-            [ meta, sync, meta.pools.findAll { k, v -> sync =~ /\b${k}\b/}.sort { it.key } ]
+            def poolsize = meta.pools.findAll { k, v -> sync =~ /\b${k}\b/}.sort { it.key }
+            [ [ id: meta.id, pools: poolsize ], sync, poolsize ]
         }
         .set { ch_sync }
 
@@ -27,6 +29,11 @@ workflow FST {
     if (params.popoolation2) {
         POPOOLATION2_FST( ch_sync )
         ch_versions = ch_versions.mix(POPOOLATION2_FST.out.versions.first())
+
+        if (params.fisher_test) {
+            POPOOLATION2_FISHERTEST( ch_sync )
+            POPOOLATION2_FISHERTEST.out.fisher.view()
+        }
     }
 
     // run grenedalf fst if requested

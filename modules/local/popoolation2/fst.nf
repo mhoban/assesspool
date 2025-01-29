@@ -10,11 +10,12 @@ process POPOOLATION2_FST {
         'biocontainers/popoolation2:1.201--pl5321hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(sync), val(pool_sizes)
+    tuple val(meta), path(sync), val(pool_map)
 
     output:
-    tuple val(meta), path("*.fst*"), emit: fst
-    path "versions.yml"           , emit: versions
+    tuple val(meta), path("*.fst")   , emit: fst
+    tuple val(meta), path("*.params"), emit: fst_params
+    path "versions.yml"              , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -22,8 +23,8 @@ process POPOOLATION2_FST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def ps = pool_sizes.collect{ it.value }.join(':')
-    def pools = combn(pool_sizes.collect{ it.key }, 2).collect { it.join(':') }.join("\t")
+    def ps = pool_map.collect{ it.value }.sort().join(':')
+    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') }.join("\t")
     def hdr = task.ext.args2 ?: false
     """
     fst-sliding.pl \\

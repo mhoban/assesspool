@@ -1,5 +1,6 @@
-include { VCFLIB_VCFFILTER   } from '../../modules/nf-core/vcflib/vcffilter/main'
-include { VCFTOOLS           } from '../../modules/nf-core/vcftools/main'
+include { VCFLIB_VCFFILTER            } from '../../modules/nf-core/vcflib/vcffilter/main'
+include { VCFTOOLS as VCFTOOLS_FILTER } from '../../modules/nf-core/vcftools/main'
+include { VCFTOOLS as VCFTOOLS_THIN   } from '../../modules/nf-core/vcftools/main'
 
 workflow FILTER {
 
@@ -29,12 +30,21 @@ workflow FILTER {
             params.max_mean_depth || params.hwe_cutoff
 
     if (vcft) {
-        VCFTOOLS ( ch_vcf2, [], [] )
-        ch_versions = ch_versions.mix(VCFTOOLS.out.versions.first())
-        VCFTOOLS.out.vcf.set{ ch_vcf_final }
+        VCFTOOLS_FILTER ( ch_vcf2, [], [] )
+        ch_versions = ch_versions.mix(VCFTOOLS_FILTER.out.versions.first())
+        VCFTOOLS_FILTER.out.vcf.set{ ch_vcf_final }
     } else {
         ch_vcf2.set{ ch_vcf_final }
     }
+
+    if (params.thin_snps) {
+        VCFTOOLS_THIN(ch_vcf_final)
+        ch_versions = ch_versions.mix(VCFTOOLS_THIN.out.versions.first())
+        VCFTOOLS_THIN.out.vcf.set{ ch_vcf_final }
+    }
+
+
+    // TODO: visualize filter results? (rmd section 'filter_visualization')
 
 
     emit:
