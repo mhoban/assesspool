@@ -169,7 +169,7 @@ gc()
 # generate sync file(s) -------------------------------------------------------------------------------------------
 
 # sync file columns
-bases <- c("A","T","G","C","N","DEL")
+bases <- c("A","T","C","G","N","DEL")
 # named list of zeroes to use with add_missing_column
 base_cols <- bases %>%
     set_names() %>%
