@@ -20,6 +20,13 @@
                 "pattern": "^\\S+\\.vcf(\\.gz)?$",
                 "errorMessage": "VCF file must be provided in the `vcf` column, cannot contain spaces, and must have extension '.vcf' or '.vcf.gz'"
             },
+            "vcf_index": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.vcf\\.gz\\.tbi$",
+                "errorMessage": "VCF index file, must look like vcf_filename.vcf.gz.tbi"
+            },
             "reference": {
                 "type": "string",
                 "format": "file-path",
@@ -35,6 +42,6 @@
                 "errorMessage": "Must provide pool size(s), either a single number or a comma-separated list"
             }
         },
-        "required": ["project", "reference","pool_sizes"]
+        "required": ["project","vcf", "reference","pool_sizes"]
     }
 }

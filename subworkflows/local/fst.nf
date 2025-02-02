@@ -1,20 +1,26 @@
-include { PREPSYNC                } from '../../modules/local/prepsync/main'
-include { POPOOLATION2_FST        } from '../../modules/local/popoolation2/fst.nf'
-include { POPOOLATION2_FISHERTEST } from '../../modules/local/popoolation2/fishertest.nf'
-include { GRENEDALF_FST           } from '../../modules/local/grenedalf/fst.nf'
-include { POOLFSTAT_FST           } from '../../modules/local/poolfstat/fst/main'
+include { PREPSYNC                              } from '../../modules/local/prepsync/main'
+include { POPOOLATION2_FST                      } from '../../modules/local/popoolation2/fst.nf'
+include { POPOOLATION2_FISHERTEST               } from '../../modules/local/popoolation2/fishertest.nf'
+include { GRENEDALF_FST                         } from '../../modules/local/grenedalf/fst.nf'
+include { POOLFSTAT_FST                         } from '../../modules/local/poolfstat/fst/main'
 
 workflow FST {
     take:
-    ch_vcf // channel: [ val(meta), path(vcf) ]
+    ch_vcf // channel: [ val(meta), path(vcf), path(index) ]
     ch_ref // channel:  path(ref)
 
     main:
 
     ch_versions = Channel.empty()
 
+    ch_vcf
+        .map{ meta, vcf, index -> [ meta.id, meta, vcf, index ] }
+        .join( ch_ref.map{ meta, ref -> [ meta.id, ref ] } )
+        .map{ id, meta, vcf, index ,ref -> [ meta, vcf, index, ref ] }
+        .set{ ch_prep }
+
     // prepare sync file(s)
-    PREPSYNC(ch_vcf,ch_ref)
+    PREPSYNC(ch_prep)
 
     // create split sync file channel
     PREPSYNC.out.split_sync
@@ -32,7 +38,6 @@ workflow FST {
 
         if (params.fisher_test) {
             POPOOLATION2_FISHERTEST( ch_sync )
-            POPOOLATION2_FISHERTEST.out.fisher.view()
         }
     }
 

@@ -9,8 +9,7 @@ process PREPSYNC {
     container 'quay.io/fishbotherer/tidy-variantannotation:1.0.1'
 
     input:
-    tuple val(meta), path(vcf)
-    path(vcf_ref)
+    tuple val(meta), path(vcf), path(index), path(vcf_ref)
     output:
     tuple val(meta), path("combined/*.sync") , optional: true, emit: combined_sync
     tuple val(meta), path("split/*.sync")    , optional: true, emit: split_sync
