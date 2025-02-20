@@ -1,7 +1,8 @@
-include { BCFTOOLS_QUERY as VCF_SAMPLES   } from '../../modules/nf-core/bcftools/query/main'
-include { BCFTOOLS_REHEADER as VCF_RENAME } from '../../modules/nf-core/bcftools/reheader/main'
-include { BCFTOOLS_VIEW                   } from '../../modules/nf-core/bcftools/view/main'
-include { TABIX_TABIX                     } from '../../modules/nf-core/tabix/tabix/main'
+include { BCFTOOLS_QUERY as VCF_SAMPLES     } from '../../modules/nf-core/bcftools/query/main'
+include { BCFTOOLS_REHEADER as VCF_RENAME   } from '../../modules/nf-core/bcftools/reheader/main'
+include { BCFTOOLS_VIEW as COMPRESS_VCF     } from '../../modules/nf-core/bcftools/view/main'
+include { TABIX_TABIX as INDEX_VCF          } from '../../modules/nf-core/tabix/tabix/main'
+include { SAMTOOLS_FAIDX as INDEX_REFERENCE } from '../../modules/nf-core/samtools/faidx/main'
 
 workflow PREPROCESS {
 
@@ -16,6 +17,14 @@ workflow PREPROCESS {
     ch_samplesheet
         .map { meta, vcf, index, ref -> [ meta, ref ] }
         .set { ch_ref }
+    // generate fasta ref index from reference fasta
+    INDEX_REFERENCE( ch_ref, ch_ref.map{ meta, ref -> [ meta, [] ] } )
+
+    ch_ref
+        .map{ meta, fasta -> [ meta.id, meta, fasta ] }
+        .join( INDEX_REFERENCE.out.fai.map{ meta, fai -> [ meta.id, fai ] } )
+        .map{ id, meta, fasta, fai -> [ meta, fasta, fai ] }
+        .set{ ch_ref }
 
     // save vcf channel
     ch_samplesheet
@@ -42,7 +51,6 @@ workflow PREPROCESS {
             [ [ id: meta.id, rename: meta.rename, pools: [pp,ps].transpose().collectEntries(), pool_map: [pools,pp].transpose().collectEntries() ], vcf, index ]
         }
         .set{ ch_vcf }
-
 
     // First, branch out which ones we need to rename, zip or index
     ch_vcf
@@ -82,22 +90,22 @@ workflow PREPROCESS {
     // rename VCF samples -----------------------------------
 
     // zip unzipped VCF -------------------------------------
-    BCFTOOLS_VIEW( ch_vcf.zip,[],[],[] )
-    BCFTOOLS_VIEW.out.vcf
+    COMPRESS_VCF( ch_vcf.zip,[],[],[] )
+    COMPRESS_VCF.out.vcf
         .map{ meta,vcf -> [ meta.id, meta, vcf ] }
-        .join( BCFTOOLS_VIEW.out.tbi.map{ meta,index -> [ meta.id, index ] } )
+        .join( COMPRESS_VCF.out.tbi.map{ meta,index -> [ meta.id, index ] } )
         .map{ id, meta, vcf, index -> [meta,vcf,index] }
         .set{ ch_zipped }
-    ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions.first())
+    ch_versions = ch_versions.mix(COMPRESS_VCF.out.versions.first())
     // zip unzipped VCF -------------------------------------
 
     // index unindexed VCF ----------------------------------
-    TABIX_TABIX( ch_vcf.index.map{ meta, vcf, index -> [ meta,vcf ] } )
+    INDEX_VCF( ch_vcf.index.map{ meta, vcf, index -> [ meta,vcf ] } )
     ch_vcf.index.map{ meta, vcf, index -> [ meta.id, meta, vcf ] }
-        .join(TABIX_TABIX.out.tbi.map{ meta, index -> [ meta.id, index ] } )
+        .join(INDEX_VCF.out.tbi.map{ meta, index -> [ meta.id, index ] } )
         .map{ id, meta, vcf, index -> [meta, vcf, index] }
         .set{ ch_indexed }
-    ch_versions = ch_versions.mix(TABIX_TABIX.out.versions.first())
+    ch_versions = ch_versions.mix(INDEX_VCF.out.versions.first())
     // index unindexed VCF ----------------------------------
 
 

@@ -67,10 +67,6 @@ workflow PIPELINE_INITIALISATION {
     // Create channel from input file provided through params.input
     //
 
-
-    // def f = samplesheetToList(params.input, "${projectDir}/assets/schema_input.json")
-    // println(f)
-    // System.exit(0)
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
         .map {

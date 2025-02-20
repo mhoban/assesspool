@@ -1,6 +1,6 @@
-include { VCFTOOLS as VCFTOOLS_FILTER                    } from '../../modules/nf-core/vcftools/main'
-include { VCFTOOLS as VCFTOOLS_THIN                      } from '../../modules/nf-core/vcftools/main'
-include { BCFTOOLS_FILTER                                } from '../../modules/nf-core/bcftools/filter/main'
+include { VCFTOOLS as VCFTOOLS_FILTER                       } from '../../modules/nf-core/vcftools/main'
+include { VCFTOOLS as THIN_SNPS                             } from '../../modules/nf-core/vcftools/main'
+include { BCFTOOLS_FILTER                                   } from '../../modules/nf-core/bcftools/filter/main'
 include { BCFTOOLS_VIEW as BCFTOOLS_COMPRESS_INDEX_FILTERED } from '../../modules/nf-core/bcftools/view/main'
 
 workflow FILTER {
@@ -48,10 +48,10 @@ workflow FILTER {
     }
 
     if (params.thin_snps) {
-        VCFTOOLS_THIN( ch_vcf3.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
-        ch_versions = ch_versions.mix(VCFTOOLS_THIN.out.versions.first())
+        THIN_SNPS( ch_vcf3.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
+        ch_versions = ch_versions.mix(THIN_SNPS.out.versions.first())
 
-        VCFTOOLS_THIN.out.vcf
+        THIN_SNPS.out.vcf
             .map{ meta, vcf -> [ meta, vcf, [] ] }
             .set{ ch_vcf4 }
     } else {

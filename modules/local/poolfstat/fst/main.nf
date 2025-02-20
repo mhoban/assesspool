@@ -2,15 +2,14 @@ process POOLFSTAT_FST {
     tag "$meta.id"
     label 'process_single'
 
-    // PR submitted to add r-poolfstat to conda-forge
-    // conda "${moduleDir}/environment.yml"
+    conda "${moduleDir}/environment.yml"
     // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
     //     'https://depot.galaxyproject.org/singularity/YOUR-TOOL-HERE':
     //     'biocontainers/YOUR-TOOL-HERE' }"
     container 'quay.io/fishbotherer/poolfstat:1.0.0'
 
     input:
-    tuple val(meta), path(sync), val(pool_sizes)
+    tuple val(meta), path(sync), val(pool_map)
 
     output:
     tuple val(meta), path('*.fst'), path('*global*.tsv'), emit: fst
@@ -23,8 +22,8 @@ process POOLFSTAT_FST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def ps = pool_sizes.collect{ it.value }.join(',')
-    def pn = pool_sizes.collect{ it.key }.join(',')
+    def ps = pool_map.collect{ it.value }.join(',')
+    def pn = pool_map.collect{ it.key }.join(',')
     """
     poolfstat.R \\
         ${args} \\

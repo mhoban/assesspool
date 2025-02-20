@@ -267,7 +267,7 @@ if (opts$split) {
         array_branch(2) %>%
         walk(\(combo) {
             combo <- sort(combo)
-            fn <- str_glue("split/{opts$prefix}--{combo[1]}--_--{combo[2]}.sync")
+            fn <- str_glue("split/{opts$prefix}_{combo[1]}-{combo[2]}.sync")
             # filter sync by combination and save it
             sync %>%
                 select(`#chr`,pos,ref,all_of(combo)) %>%

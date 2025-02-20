@@ -95,27 +95,20 @@ pooldata <- popsync2pooldata(
 fst <- computeFST(pooldata,sliding.window.size=opt$options$window_size)
 
 # get population combo string
-fn <- str_c(pooldata@poolnames,collapse='--_--')
+fn <- str_c(pooldata@poolnames,collapse='-')
 
 # save global Fst
 global_fst <- tibble(pop1=pooldata@poolnames[1],pop2=pooldata@poolnames[2],fst=fst$Fst[1])
-write_tsv(global_fst,str_glue("{opt$options$prefix}_global--{fn}.tsv"))
+write_tsv(global_fst,str_glue("{opt$options$prefix}_global_{fn}.tsv"))
 
 # save sliding window Fst, if they exist
 if (!is.null(fst$sliding.windows.fvalues)) {
     sliding <- as_tibble(fst$sliding.windows.fvalues) %>%
         rename(chrom=1,start=2,end=3,mid=4,cum_mid=5,fst=6)
-    write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}--{fn}.tsv"))
+    write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}_{fn}.tsv"))
 }
 
-# if (length(opt$options$pool_names) == 2) {
 pools <- str_c(pooldata@poolnames,collapse=':')
-# } else {
-#     pools <- opt$options$pool_names %>%
-#         combn(2) %>%
-#         array_branch(2) %>%
-#         map_chr(~str_c(.x,collapse=':'))
-# }
 
 # save per-snp Fst, match popoolation output
 snp_fst <- pooldata@snp.info %>%

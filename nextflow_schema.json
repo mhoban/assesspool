@@ -18,7 +18,7 @@
                     "exists": true,
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
-                    "pattern": "^\\S+\\.csv$",
+                    "pattern": "^\\S+\\.(csv|tsv)$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. See [usage docs](https://nf-co.re/assesspool/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
@@ -101,7 +101,7 @@
                 },
                 "publish_dir_mode": {
                     "type": "string",
-                    "default": "copy",
+                    "default": "symlink",
                     "description": "Method used to save pipeline results to output directory.",
                     "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
                     "fa_icon": "fas fa-copy",
@@ -150,18 +150,254 @@
                     "hidden": true
                 }
             }
+        },
+        "filtering_options": {
+            "title": "Filtering options",
+            "type": "object",
+            "description": "aw",
+            "default": "",
+            "properties": {
+                "filter": {
+                    "type": "boolean",
+                    "description": "Filter VCF file prior to performating analyses."
+                },
+                "keep_indel": {
+                    "type": "boolean",
+                    "description": "Retain insertion/deletion sites."
+                },
+                "keep_multiallelic": {
+                    "type": "boolean",
+                    "description": "Retain multiallelic sites (may not be supported by all analysis methods)"
+                },
+                "max_missing": {
+                    "type": "number",
+                    "description": "Exclude sites on the basis of the proportion of missing data."
+                },
+                "min_minor_allele_count": {
+                    "type": "integer",
+                    "description": "Minimum minor allele count."
+                },
+                "min_mean_depth": {
+                    "type": "number",
+                    "description": "Minimum mean read depth."
+                },
+                "max_mean_depth": {
+                    "type": "number",
+                    "description": "Maximum mean read depth."
+                },
+                "hwe_cutoff": {
+                    "type": "number",
+                    "description": "p-value threshold for Hardy-Weinberg equlibrium test."
+                },
+                "thin_snps": {
+                    "type": "boolean",
+                    "description": "Thin sites so that no two sites are within the specified distance from one another."
+                },
+                "min_mapping_quality": {
+                    "type": "number",
+                    "description": "Minimum mapping quality of alternate alleles."
+                },
+                "min_mapping_quality_ref": {
+                    "type": "number",
+                    "description": "Minimum mapping quality of reference alleles."
+                },
+                "min_mapping_ratio": {
+                    "type": "number",
+                    "description": "Minimum mapping quality ratio of alternate to reference alleles."
+                },
+                "max_mapping_ratio": {
+                    "type": "number",
+                    "description": "Maximum mapping quality ratio of alternate to reference alleles."
+                },
+                "read_balance_left": {
+                    "type": "integer",
+                    "description": "Minimum reads placed left."
+                },
+                "read_balance_right": {
+                    "type": "string",
+                    "description": "Minimum reads placed right."
+                },
+                "quality_depth_ratio": {
+                    "type": "number",
+                    "description": "Minimum quality/depth ratio."
+                },
+                "mispaired_reads": {
+                    "type": "boolean",
+                    "description": "Filter mispaired reads."
+                },
+                "min_pools": {
+                    "type": "integer",
+                    "description": "Minimum number of pools with data."
+                },
+                "min_depth": {
+                    "type": "integer",
+                    "description": "Minimum total read depth."
+                },
+                "max_allele_length": {
+                    "type": "integer",
+                    "description": "Maximum allele length"
+                },
+                "min_quality": {
+                    "type": "number",
+                    "description": "Minimum SNP quality"
+                },
+                "variant_type": {
+                    "type": "string",
+                    "description": "Variant type.",
+                    "enum": ["REF", "SNP", "MNP", "INDEL"]
+                },
+                "min_alternate_observations": {
+                    "type": "integer",
+                    "description": "Minimum observations of the alternate haplotype."
+                },
+                "visualizations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Generate visualizations of VCF filtering results."
+                }
+            },
+            "fa_icon": "fas fa-filter"
+        },
+        "f_statistic_options": {
+            "title": "F-statistic options",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "popoolation2": {
+                    "type": "boolean",
+                    "description": "Calculate Fst using `popoolation2`"
+                },
+                "grenedalf": {
+                    "type": "boolean",
+                    "description": "Calculate Fst using `grenedalf`"
+                },
+                "poolfstat": {
+                    "type": "boolean",
+                    "description": "Calculate Fst using `poolfstat`"
+                },
+                "match_allele_count": {
+                    "type": "boolean",
+                    "description": "Only keep sites where with matching allele counts across all pools."
+                },
+                "missing_zeroes": {
+                    "type": "boolean",
+                    "description": "Convert missing observations to zeroes."
+                },
+                "fisher_test": {
+                    "type": "boolean",
+                    "description": "Perform Fisher's exact test using `popoolation2`"
+                },
+                "fst_headers": {
+                    "type": "boolean",
+                    "description": "Include headers in Fst output files"
+                },
+                "min_count": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "(Fst calculation) Minimum base count for a nucleotide to be considered as an allele."
+                },
+                "min_coverage": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "(Fst calculation) Minimum read depth expected for a position in a sample to be considered covered."
+                },
+                "max_coverage": {
+                    "type": "integer",
+                    "default": 1000,
+                    "description": "(Fst calculation) Maximum read depth expected for a position in a sample to be considered covered"
+                },
+                "min_covered_fraction": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "(popoolation2) The minimum fraction of a window being between min-coverage and max-coverage in ALL samples."
+                },
+                "suppress_noninformative": {
+                    "type": "boolean",
+                    "description": "(popoolation2) Suppress noninformative sites."
+                },
+                "step_size": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "(popoolation2) Fst window step size"
+                },
+                "window_size": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "(popoolation2/poolfstat Fst calculation) Sliding window size."
+                },
+                "min_minor_allele_frequency": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "(poolfstat) Minimal allowed Minor Allele Frequency."
+                },
+                "fst_method": {
+                    "type": "string",
+                    "default": "kofler",
+                    "description": "(grenedalf) Fst calculation method.",
+                    "enum": ["unbiased-nei", "unbiased-hudson", "kofler", "karlsson"]
+                },
+                "window_type": {
+                    "type": "string",
+                    "default": "queue",
+                    "description": "(grenedalf) Fst calculation window type.",
+                    "enum": ["interval", "queue", "single", "regions", "chromosomes", "genome"]
+                },
+                "window_interval_stride": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "(grenedalf) Fst window interval stride"
+                },
+                "window_interval_width": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "(grenedalf) Fst window interval width"
+                },
+                "window_queue_count": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "(grenedalf) Fst window queue count."
+                },
+                "window_queue_stride": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "(grenedalf) Fst window queue stride."
+                },
+                "window_region": {
+                    "type": "boolean",
+                    "description": "(grenedalf) Fst window region."
+                },
+                "window_region_list": {
+                    "type": "string",
+                    "description": "(grenedalf) Text file containing list of window regions.",
+                    "format": "file-path"
+                },
+                "window_region_skip_empty": {
+                    "type": "boolean",
+                    "description": "(grenedalf) Skip empty window regions."
+                },
+                "all_fst_columns": {
+                    "type": "boolean",
+                    "description": "(grenedalf) Include extra columns in Fst ouput (e.g., position counts, etc.)."
+                }
+            }
         }
     },
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
         },
-        
         {
             "$ref": "#/$defs/institutional_config_options"
         },
         {
             "$ref": "#/$defs/generic_options"
+        },
+        {
+            "$ref": "#/$defs/filtering_options"
+        },
+        {
+            "$ref": "#/$defs/f_statistic_options"
         }
     ]
 }

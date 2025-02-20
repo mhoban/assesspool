@@ -23,7 +23,7 @@ process POPOOLATION2_FST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def ps = pool_map.collect{ it.value }.sort().join(':')
+    def ps = pool_map.collect{ it.value }.join(':')
     def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') }.join("\t")
     def hdr = task.ext.args2 ?: false
     """
@@ -50,6 +50,7 @@ process POPOOLATION2_FST {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch "${sync.BaseName}.fst"
+    touch "${sync.BaseName}.fst.params"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
