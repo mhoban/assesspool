@@ -48,6 +48,7 @@ process POPOOLATION2_FISHERTEST {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch "${sync.BaseName}.fisher"
+    touch "${sync.BaseName}.fisher.params"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
