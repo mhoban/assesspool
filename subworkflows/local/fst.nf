@@ -68,9 +68,6 @@ workflow FST {
 
         // run poolfstat fst if requested
         if (params.poolfstat) {
-            if (!params.missing_zeroes) {
-                log.warn("")
-            }
             POOLFSTAT_FST( ch_split_sync )
             ch_versions = ch_versions.mix(POOLFSTAT_FST.out.versions.first())
         }

@@ -63,6 +63,9 @@ workflow PIPELINE_INITIALISATION {
         nextflow_cli_args
     )
 
+    // check command-line parameters and issue any necessary warnings
+    checkParams()
+
     //
     // Create channel from input file provided through params.input
     //
@@ -184,6 +187,13 @@ def toolBibliographyText() {
         ].join(' ').trim()
 
     return reference_text
+}
+
+// check parameters and warn if necessary
+def checkParams() {
+    if (params.poolfstat && !params.missing_zeroes) {
+        log.warn("Poolfstat does not support sync files with missing data. The --missing_zeroes option is recommended.")
+    }
 }
 
 def methodsDescriptionText(mqc_methods_yaml) {
