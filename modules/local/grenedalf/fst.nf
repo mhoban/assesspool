@@ -15,7 +15,7 @@ process GRENEDALF_FST {
 
     output:
     tuple val(meta), path("*fst.csv"), emit: fst
-    path "versions.yml"               , emit: versions
+    path "versions.yml"              , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
