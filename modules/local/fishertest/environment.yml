@@ -1,0 +1,6 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - conda-forge::r-optparse=1.7.5
+  - conda-forge::r-poolfstat=3.0.0
