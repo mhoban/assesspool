@@ -5,7 +5,6 @@ suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(tibble))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(readr))
-suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(dplyr))
 
 
@@ -48,6 +47,7 @@ list_opt <- function(opt, flag, val, parser, ...) {
 option_list <- list(
     make_option(c("-w", "--window-size"), action="store", default=0, type='double', help="Fst window size"),
     make_option(c("-c", "--min-coverage"), action="store", default=-1, type='double', help="Minimum coverage per pool"),
+    make_option(c("-C", "--min-count"), action="store", default=2, type='double', help="Minimum Minimal allowed read count per base"),
     make_option(c("-x", "--max-coverage"), action="store", default=1e06, type='double', help="Maximum coverage per pool"),
     make_option(c("-m", "--min-maf"), action="store", default=0.01, type='double', help="Minimum minor allele frequnency"),
     make_option(c("-i", "--indels"), action="store_true", default=FALSE, type='logical', help="Keep indel variants"),
@@ -83,12 +83,14 @@ opt <- parse_args(
 # load pool data from sync
 pooldata <- popsync2pooldata(
     sync.file = opt$args[1],
-    poolsizes = opt$options$pool_sizes,
+    poolsizes = as.numeric(opt$options$pool_sizes),
     poolnames = opt$options$pool_names,
+    min.rc = opt$options$min_count,
     min.cov.per.pool = opt$options$min_coverage,
     max.cov.per.pool = opt$options$max_coverage,
+    min.maf = opt$options$min_maf,
     noindel = !opt$options$indels,
-    min.maf = opt$options$min_maf
+    nthreads = opt$options$threads
 )
 
 # calculate F-stats
@@ -114,7 +116,12 @@ pools <- str_c(pooldata@poolnames,collapse=':')
 snp_fst <- pooldata@snp.info %>%
     as_tibble() %>%
     select(chrom=1,pos=2) %>%
-    mutate(window_size = opt$options$window_size, covered_fraction = 1, avg_min_coverage = rowSums(pooldata@readcoverage), "{pools}" := fst$snp.Fstats$Fst) %>%
+    mutate(
+      window_size = opt$options$window_size,
+      covered_fraction = 1,
+      avg_min_coverage = rowSums(pooldata@readcoverage),
+      "{pools}" := fst$snp.Fstats$Fst
+    ) %>%
     select(chrom,pos,window_size,covered_fraction,avg_min_coverage,all_of(pools))
 write_tsv(snp_fst,str_glue("{opt$options$prefix}_{fn}.fst"),col_names=opt$options$headers)
 

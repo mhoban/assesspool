@@ -1,20 +1,20 @@
 process POOLFSTAT_FST {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_medium_low'
 
     conda "${moduleDir}/environment.yml"
-    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-    //     'https://depot.galaxyproject.org/singularity/YOUR-TOOL-HERE':
-    //     'biocontainers/YOUR-TOOL-HERE' }"
-    container 'quay.io/fishbotherer/poolfstat:1.0.0'
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0':
+        'biocontainers/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0' }"
 
     input:
-    tuple val(meta), path(sync), val(pool_map)
+    tuple val(meta), val(pool_map), path(sync)
 
     output:
-    tuple val(meta), path('*.fst'), path('*global*.tsv'), emit: fst
-    path('*sliding*.tsv')                               , emit: sliding, optional: true
-    path 'versions.yml'                                , emit: versions
+    tuple val(meta), path('*.fst')       , emit: fst
+    tuple val(meta), path('*global*.tsv'), emit: global
+    path('*sliding*.tsv')                , emit: sliding, optional: true
+    path 'versions.yml'                  , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -38,6 +38,12 @@ process POOLFSTAT_FST {
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
         poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        tibble: \$(Rscript -e "cat(paste(packageVersion('tibble')),sep='.')")
+        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
+        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
+        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
+        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
     END_VERSIONS
     """
 
@@ -51,6 +57,12 @@ process POOLFSTAT_FST {
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
         poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        tibble: \$(Rscript -e "cat(paste(packageVersion('tibble')),sep='.')")
+        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
+        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
+        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
+        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
     END_VERSIONS
     """
 }
