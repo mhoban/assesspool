@@ -10,7 +10,7 @@ process POPOOLATION2_FST {
         'biocontainers/popoolation2:1.201--pl5321hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(sync), val(pool_map)
+    tuple val(meta), val(pool_map), path(sync)
 
     output:
     tuple val(meta), path("*.fst")   , emit: fst
@@ -24,8 +24,7 @@ process POPOOLATION2_FST {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def ps = pool_map.collect{ it.value }.join(':')
-    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') }.join("\t")
-    def hdr = task.ext.args2 ?: false
+    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') + ".fst" }.join("\t")
     """
     fst-sliding.pl \\
         --input ${sync} \\
@@ -33,11 +32,9 @@ process POPOOLATION2_FST {
         --pool-size ${ps} \\
         ${args}
 
-    if ${hdr}; then
-        for fst in *.fst; do
-            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fst
-        done
-    fi
+    for fst in *.fst; do
+        sed -i \$'1i chrom\tmiddle\tsnps\tcovered_fraction\tavg_min_coverage\t${pools}' \$fst
+    done
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

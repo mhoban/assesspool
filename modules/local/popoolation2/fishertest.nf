@@ -23,19 +23,16 @@ process POPOOLATION2_FISHERTEST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def hdr = task.ext.args2 ?: false
-    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') }.join("\t")
+    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') + ".fisher" }.join("\t")
     """
     fisher-test.pl \\
         --input "${sync}" \\
         --output "${sync.BaseName}.fisher" \\
         ${args}
 
-    if ${hdr}; then
         for fisher in *.fisher; do
-            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
+            sed -i \$'1i chrom\tmiddle\tsnps\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
         done
-    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
