@@ -189,8 +189,17 @@ def toolBibliographyText() {
     return reference_text
 }
 
-// check parameters and warn if necessary
+// check parameters and warn/error if necessary
 def checkParams() {
+    if (params.window_size != 1) {
+        error "The only currently supported window size is 1"
+    }
+    if (params.window_type != "single") {
+        error "The only currently supported window type is 'single'"
+    }
+    if (params.window_stride != 0) {
+        error "The only currently supported window stride size is 0"
+    }
     if (params.poolfstat && !params.missing_zeroes) {
         log.warn("Poolfstat does not support sync files with missing data. The --missing_zeroes option is recommended.")
     }
