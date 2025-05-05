@@ -4,11 +4,11 @@ process JOINFREQ {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/mulled-v2-dcb5179d6045c4df41d4319c99d446681271222e:4856497379063722ac7efef973f14ae775bd88ca-0':
-        'biocontainers/mulled-v2-dcb5179d6045c4df41d4319c99d446681271222e:4856497379063722ac7efef973f14ae775bd88ca-0' }"
+        'https://depot.galaxyproject.org/singularity/mulled-v2-1021c2bc41756fa99bc402f461dad0d1c35358c1:b0c847e4fb89c343b04036e33b2daa19c4152cf5-0':
+        'biocontainers/mulled-v2-1021c2bc41756fa99bc402f461dad0d1c35358c1:b0c847e4fb89c343b04036e33b2daa19c4152cf5-0' }"
 
     input:
-    tuple val(meta), path(frequency), path(fst)
+    tuple val(meta), path(frequency), path(fst), val(method)
 
     output:
     tuple val(meta), path("*_fst_frequency.tsv"), emit: fst_freq
@@ -19,10 +19,12 @@ process JOINFREQ {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = (task.ext.prefix ?: "${meta.id}") + (method ? "_${method}" : "_unspecified")
+    def m = method ? "--method ${method}" : ""
     """
     joinfreq.R \\
         ${args} \\
+        ${m} \\
         --prefix "${prefix}" \\
         "${frequency}" \\
         "${fst}"
@@ -30,12 +32,12 @@ process JOINFREQ {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        optparse: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        janitor: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('janitor')),sep='.')")
+        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
+        tidyr: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
+        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
         purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
     END_VERSIONS
     """
 
@@ -48,12 +50,12 @@ process JOINFREQ {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        optparse: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        janitor: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('janitor')),sep='.')")
+        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
+        tidyr: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
+        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
         purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
     END_VERSIONS
     """
 }
