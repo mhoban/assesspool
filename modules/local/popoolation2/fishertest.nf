@@ -31,7 +31,7 @@ process POPOOLATION2_FISHERTEST {
         ${args}
 
         for fisher in *.fisher; do
-            sed -i \$'1i chrom\tmiddle\tsnps\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
+            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
         done
 
     cat <<-END_VERSIONS > versions.yml

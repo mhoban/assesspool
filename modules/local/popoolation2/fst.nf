@@ -24,7 +24,7 @@ process POPOOLATION2_FST {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def ps = pool_map.collect{ it.value }.join(':')
-    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') + ".fst" }.join("\t")
+    def pools = combn(pool_map.keySet(), 2).collect { it.sort().join(':') + ".fst" }.join("\t")
     """
     fst-sliding.pl \\
         --input ${sync} \\
@@ -33,7 +33,7 @@ process POPOOLATION2_FST {
         ${args}
 
     for fst in *.fst; do
-        sed -i \$'1i chrom\tmiddle\tsnps\tcovered_fraction\tavg_min_coverage\t${pools}' \$fst
+        sed -i \$'1i chrom\tpos\tswindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fst
     done
 
     cat <<-END_VERSIONS > versions.yml
