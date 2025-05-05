@@ -14,7 +14,7 @@ process GRENEDALF_FST {
     tuple val(meta), path(fai)
 
     output:
-    tuple val(meta), path("*fst.csv"), emit: fst
+    tuple val(meta), path("*fst.tsv"), emit: fst
     path "versions.yml"              , emit: versions
 
     when:
@@ -35,6 +35,9 @@ process GRENEDALF_FST {
         --sync-path ${sync} \\
         --pool-sizes ${pool_sizes}
 
+    mv "${prefix}_fst.csv" "${prefix}_fst.tsv"
+
+
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -46,7 +49,7 @@ process GRENEDALF_FST {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch "${prefix}_fst.csv"
+    touch "${prefix}_fst.tsv"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

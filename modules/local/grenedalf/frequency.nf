@@ -13,7 +13,7 @@ process GRENEDALF_FREQUENCY {
     tuple val(meta), path(fai)
 
     output:
-    tuple val(meta), path("*frequency.csv"), emit: freq
+    tuple val(meta), path("*frequency.tsv"), emit: freq
     path "versions.yml"                    , emit: versions
 
     when:
@@ -37,6 +37,8 @@ process GRENEDALF_FREQUENCY {
         ${args} \\
         --sync-path ${sync}
 
+    mv "${prefix}_frequency.csv" "${prefix}_frequency.tsv"
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         grenedalf: \$(grenedalf --version)
@@ -47,7 +49,7 @@ process GRENEDALF_FREQUENCY {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch "${prefix}_frequency.csv"
+    touch "${prefix}_frequency.tsv"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
