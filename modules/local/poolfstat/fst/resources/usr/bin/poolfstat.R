@@ -1,11 +1,13 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages(library(poolfstat))
-suppressPackageStartupMessages(library(optparse))
-suppressPackageStartupMessages(library(tibble))
-suppressPackageStartupMessages(library(stringr))
-suppressPackageStartupMessages(library(readr))
-suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages({
+  library(poolfstat)
+  library(optparse)
+  library(tibble)
+  library(stringr)
+  library(readr)
+  library(dplyr)
+})
 
 
 # help message formatter
@@ -110,7 +112,7 @@ if (!is.null(fst$sliding.windows.fvalues)) {
     write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}_{fn}.tsv"))
 }
 
-pools <- str_c(pooldata@poolnames,collapse=':')
+pools <- str_c(str_c(pooldata@poolnames,collapse=':'),".fst")
 
 # save per-snp Fst, match popoolation output
 snp_fst <- pooldata@snp.info %>%
@@ -119,7 +121,8 @@ snp_fst <- pooldata@snp.info %>%
     mutate(
       window_size = opt$options$window_size,
       covered_fraction = 1,
-      avg_min_coverage = rowSums(pooldata@readcoverage),
+      # depth = rowSums(pooldata@readcoverage),
+      avg_min_coverage = do.call(pmin,as.data.frame(pooldata@readcoverage)),
       "{pools}" := fst$snp.Fstats$Fst
     ) %>%
     select(chrom,pos,window_size,covered_fraction,avg_min_coverage,all_of(pools))
