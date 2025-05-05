@@ -159,8 +159,8 @@ if (!file.exists(opt$args[1])) {
 # this filtering should match popoolation/poolfst
 
 # split(ceiling(seq_along(.)/50)) %>%
-  
-freq_snps <- read_csv(opt$args[1],col_types = cols(),progress = FALSE) 
+
+freq_snps <- read_tsv(opt$args[1],col_types = cols(),progress = FALSE)
 
 if (all(is.na(pools))) {
   pools <- freq_snps %>%
@@ -235,7 +235,7 @@ if (save_all & window_size > 1) {
   fisher_results %>%
     mutate(
       "{pool_col}" := -log10(pval),
-      snps = 1,
+      window_size = 1,
       covered_fraction = 1,
       start=pos,
       end=pos,
@@ -248,11 +248,11 @@ fisher_results <- fisher_results %>%
   group_by(chrom,middle,start,end,snp_count) %>%
   summarise(
     "{pool_col}" := -log10(p_combine(pval)),
-    snps = n(),
+    window_size = n(),
     covered_fraction = unique(snp_count)/window_size,
     avg_min_coverage = mean(min_cov)
   ) %>%
-  select(chrom,start,middle,end,snps,covered_fraction,avg_min_coverage,all_of(pool_col))  %>%
+  select(chrom,start,middle,end,window_size,covered_fraction,avg_min_coverage,all_of(pool_col))  %>%
   ungroup()
 
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)

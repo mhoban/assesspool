@@ -23,7 +23,6 @@ process FISHERTEST {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def pool_arg = "--pools '${pools.join(',')}'"
     """
-    echo "nothing"
     fisher.R \\
         ${args} \\
         ${pool_arg} \\
