@@ -109,7 +109,7 @@ workflow PREPROCESS {
     // index unindexed VCF ----------------------------------
 
 
-    // // Mix back in any renamed tbis
+    // // Mix back in any renamed bits
     ch_vcf.keep_as_is
         .mix( ch_renamed )
         .mix( ch_zipped )

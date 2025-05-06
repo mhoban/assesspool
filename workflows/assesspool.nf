@@ -6,12 +6,12 @@
 
 
 include { paramsSummaryMap       } from 'plugin/nf-schema'
-
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_assesspool_pipeline'
 include { FILTER                 } from '../subworkflows/local/filter.nf'
-include { FST                    } from '../subworkflows/local/fst.nf'
 include { PREPROCESS             } from '../subworkflows/local/preprocess.nf'
+include { POOLSTATS              } from '../subworkflows/local/poolstats.nf'
+include { POSTPROCESS             } from '../subworkflows/local/postprocess.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,11 +39,9 @@ workflow ASSESSPOOL {
     ch_versions = ch_versions.mix(FILTER.out.versions.first())
 
 
-    // do Fst calculations if desired
-    if (params.popoolation2 || params.grenedalf || params.poolfstat) {
-        FST(ch_filtered,ch_ref)
-        ch_versions = ch_versions.mix(FST.out.versions.first())
-    }
+    // calculate pool statistics (fst, fisher, etc.)
+    POOLSTATS(ch_filtered,ch_ref)
+    ch_versions = ch_versions.mix(POOLSTATS.out.versions.first())
 
     //
     // Collate and save software versions
