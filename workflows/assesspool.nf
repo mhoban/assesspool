@@ -43,6 +43,16 @@ workflow ASSESSPOOL {
     POOLSTATS(ch_filtered,ch_ref)
     ch_versions = ch_versions.mix(POOLSTATS.out.versions.first())
 
+    // run post-processing steps
+    POSTPROCESS(
+        ch_vcf,
+        POOLSTATS.out.fst,
+        ch_ref,
+        POOLSTATS.out.sync,
+        POOLSTATS.out.split_sync,
+        POOLSTATS.out.frequency
+    )
+
     //
     // Collate and save software versions
     //

@@ -149,6 +149,7 @@ workflow POOLSTATS {
 
     emit:
     fst = ch_join
+    all_fst = ch_fst
     fisher = ch_fisher
     sync = GRENEDALF_SYNC.out.sync
     frequency = ch_freq

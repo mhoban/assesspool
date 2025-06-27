@@ -13,33 +13,33 @@ options(dplyr.summarise.inform = FALSE)
 
 # help message formatter
 nice_formatter <- function(object) {
-    cat(object@usage, fill = TRUE)
-    cat(object@description, fill = TRUE)
-    cat("Options:", sep = "\n")
+  cat(object@usage, fill = TRUE)
+  cat(object@description, fill = TRUE)
+  cat("Options:", sep = "\n")
 
-    options_list <- object@options
-    for (ii in seq_along(options_list)) {
-        option <- options_list[[ii]]
-        cat("  ")
-        if (!is.na(option@short_flag)) {
-            cat(option@short_flag)
-            if (optparse:::option_needs_argument(option)) {
-                cat(" ", toupper(option@metavar), sep = "")
-            }
-            cat(", ")
-        }
-        if (!is.null(option@long_flag)) {
-            cat(option@long_flag)
-            if (optparse:::option_needs_argument(option)) {
-                cat("=", toupper(option@metavar), sep = "")
-            }
-        }
-        cat("\n    ")
-        cat(sub("%default", optparse:::as_string(option@default), option@help))
-        cat("\n\n")
+  options_list <- object@options
+  for (ii in seq_along(options_list)) {
+    option <- options_list[[ii]]
+    cat("  ")
+    if (!is.na(option@short_flag)) {
+      cat(option@short_flag)
+      if (optparse:::option_needs_argument(option)) {
+        cat(" ", toupper(option@metavar), sep = "")
+      }
+      cat(", ")
     }
-    cat(object@epilogue, fill = TRUE)
-    return(invisible(NULL))
+    if (!is.null(option@long_flag)) {
+      cat(option@long_flag)
+      if (optparse:::option_needs_argument(option)) {
+        cat("=", toupper(option@metavar), sep = "")
+      }
+    }
+    cat("\n    ")
+    cat(sub("%default", optparse:::as_string(option@default), option@help))
+    cat("\n\n")
+  }
+  cat(object@epilogue, fill = TRUE)
+  return(invisible(NULL))
 }
 
 # geometric mean
@@ -82,44 +82,45 @@ pops_callback <- function(opt, flag, val, parser, ...) {
 
 # set up option list
 option_list <- list(
-    make_option(c("-p", "--pools"), action="callback", default=NA, type='character',
-                help="Subset of pools for which to calculate Fisher test (comma-separated or listed in a text file)",callback=pops_callback),
-    make_option(c("-m", "--window-type"), action="callback", default="single", type='character', help="Window type",
-                callback=expand_callback, callback_args = list(args=c("single","interval","queue"))),
-    make_option(c("-w", "--window-size"), action="store", default=1, type='double', help="Fst window size"),
-    make_option(c("-s", "--window-step"), action="store", default=0, type='double', help="Fst window step"),
-    make_option(c("-C", "--min-count"), action="store", default=2, type='double', help="Minimum Minimal allowed read count per base"),
-    make_option(c("-c", "--min-coverage"), action="store", default=0, type='double', help="Minimum coverage per pool"),
-    make_option(c("-x", "--max-coverage"), action="store", default=1e03, type='double', help="Maximum coverage per pool"),
-    make_option(c("-a", "--pval-aggregate"), action="callback", default=prod, type='character', help="P-value aggregation method",callback=pval_callback),
-    make_option(c("-A", "--all-snps"), action="store_true", default=FALSE, type='logical', help="Save fisher test results for all SNPs, regardless of window size"),
-    make_option(c("-j", "--adjust-pval"), action="store_true", default=FALSE, type='logical', help="Adjust p-value for multiple comparisons"),
-    make_option(c("-J", "--adjust-method"), action="store", default="bonferroni", type='character', help="P-value adjustment method"),
-    make_option(c("-f", "--prefix"), action="store", default="", type='character', help="Output file prefix"),
-    make_option(c("-o", "--output-dir"), action="store", default=".", type='character', help="Output directory"),
-    make_option(c("-t", "--threads"), action="store", default=1, type='double', help="Number of threads"),
-    make_option(c("-l", "--lines-per-thread"), action="store", default=1e06, type='double', help="Number of lines to load per thread")
+  make_option(c("-p", "--pools"), action="callback", default=NA, type='character',
+              help="Subset of pools for which to calculate Fisher test (comma-separated or listed in a text file)",callback=pops_callback),
+  make_option(c("-m", "--window-type"), action="callback", default="single", type='character', help="Window type",
+              callback=expand_callback, callback_args = list(args=c("single","interval","queue"))),
+  make_option(c("-w", "--window-size"), action="store", default=1, type='double', help="Fst window size"),
+  make_option(c("-s", "--window-step"), action="store", default=0, type='double', help="Fst window step"),
+  make_option(c("-C", "--min-count"), action="store", default=2, type='double', help="Minimum Minimal allowed read count per base"),
+  make_option(c("-c", "--min-coverage"), action="store", default=0, type='double', help="Minimum coverage per pool"),
+  make_option(c("-x", "--max-coverage"), action="store", default=1e03, type='double', help="Maximum coverage per pool"),
+  make_option(c("-a", "--pval-aggregate"), action="callback", default=prod, type='character', help="P-value aggregation method",callback=pval_callback),
+  make_option(c("-A", "--all-snps"), action="store_true", default=FALSE, type='logical', help="Save fisher test results for all SNPs, regardless of window size"),
+  make_option(c("-j", "--adjust-pval"), action="store_true", default=FALSE, type='logical', help="Adjust p-value for multiple comparisons"),
+  make_option(c("-J", "--adjust-method"), action="store", default="bonferroni", type='character', help="P-value adjustment method"),
+  make_option(c("-f", "--prefix"), action="store", default="", type='character', help="Output file prefix"),
+  make_option(c("-o", "--output-dir"), action="store", default=".", type='character', help="Output directory"),
+  make_option(c("-t", "--threads"), action="store", default=1, type='double', help="Number of threads"),
+  make_option(c("-L", "--long-output"), action="store_true", default=FALSE, type='logical', help="Produce output in long format (separate columns for each pool)"),
+  make_option(c("-l", "--lines-per-thread"), action="store", default=1e06, type='double', help="Number of lines to load per thread")
 )
 
 
 # use debug arguments if we have 'em
 if (exists('debug_args')) {
-    opt_args <- debug_args
+  opt_args <- debug_args
 } else {
-    opt_args <- commandArgs(TRUE)
+  opt_args <- commandArgs(TRUE)
 }
 
 # parse command-line options
 opt <- parse_args(
-    OptionParser(
-        option_list=option_list,
-        formatter=nice_formatter,
-        prog="fisher.R",
-        usage="%prog [options] <frequency_file>"
-    ),
-    convert_hyphens_to_underscores = TRUE,
-    positional_arguments = 1,
-    args = opt_args
+  OptionParser(
+    option_list=option_list,
+    formatter=nice_formatter,
+    prog="fisher.R",
+    usage="%prog [options] <frequency_file>"
+  ),
+  convert_hyphens_to_underscores = TRUE,
+  positional_arguments = 1,
+  args = opt_args
 )
 
 window_type  <- opt$options$window_type
@@ -140,7 +141,11 @@ p_combine     <- opt$options$pval_aggregate
 save_all      <- opt$options$all_snps
 adjust_p      <- opt$options$adjust_pval
 adjust_method <- opt$options$adjust_method
-pools          <- opt$options$pools
+pools         <- opt$options$pools
+long_output   <- opt$options$long_output
+
+
+
 if (!all(is.na(pools))) {
   if (length(pools) != 2) {
     stop("--pools must be a list of exactly two pool names, either comma-separated or in a text file")
@@ -254,6 +259,11 @@ fisher_results <- fisher_results %>%
   ) %>%
   select(chrom,start,middle,end,window_size,covered_fraction,avg_min_coverage,all_of(pool_col))  %>%
   ungroup()
+
+if (long_output) {
+  fisher_results <- fisher_results %>%
+    pivot_longer(ends_with(".fisher"),names_to=c("pop1","pop2",".value"),names_pattern = "^([^:]+):(.+)\\.(fisher)$") 
+}
 
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)
 write_tsv(fisher_results,ss)
