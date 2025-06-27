@@ -1,0 +1,328 @@
+---
+title: assessPool analysis
+output:
+  html_document:
+    toc: true               # table of contents
+    toc_float: true         # float the table of contents to the left of the main document content
+    toc_depth: 4            # header levels 1,2,3
+    theme: default
+    number_sections: false  # add section numbering to headers
+    df_print: paged         # tables are printed as an html table with support for pagination over rows and columns
+    highlight: pygments
+    pdf_document: true
+  pdf_document:
+    toc: yes
+date: "`r Sys.Date()`"
+params:
+  debug: FALSE
+  fst_file: /Users/deadbilly/projects/pipeline/pool/nf-core-assesspool/testing/output/joinfreq/fst_freq_all.tsv
+  tz: NULL
+  viz_filter: FALSE
+  min_cov: 10
+  max_cov: 70
+  cov_step: 10
+---
+```{r setup, echo=FALSE, include=FALSE}
+# Sys.setenv(TZDIR="/opt/conda/share/zoneinfo")
+# Sys.setenv(TZ='America/Los_Angeles')
+tz <- ifelse(is.null(params$tz),"UTC",params$tz)
+Sys.setenv(TZ=tz)
+
+library(knitr)
+library(yaml)
+library(plotly)
+library(DT)
+library(readr)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(paletteer)
+options(show.error.locations = TRUE)
+
+knitr::opts_chunk$set(echo = FALSE)
+options(dplyr.summarise.inform = FALSE)
+```
+
+```{r init, include=FALSE}
+# Load the datatables js
+datatable(NULL)
+
+# load the plotly js
+plot_ly()
+
+
+# load fst data
+fst <- read_tsv(params$fst_file)
+```
+
+```{r, results='asis',  eval=params$debug}
+cat("# Debug info\n")
+```
+
+```{r,  eval=params$debug}
+if (params$debug) {
+  # print(params$meta$pools)
+  cat("params\n\n")
+  str(params)
+}
+```
+
+# Abstract
+
+This report summarizes the output of population genetic analyses of a pool-seq RAD library.
+
+# Data
+
+This section provides a summary of sample/pool metadata.
+
+<!--
+## F<sub>st</sub> data
+
+```{r, results='asis'}
+# print( htmltools::tagList(datatable(as.data.frame(fst), caption = "Fst data", rownames = FALSE, options = list(scrollX = TRUE)) ))
+```
+-->
+
+```{r, results='asis', eval=params$viz_filter}
+cat("# VCF Filtering\n")
+```
+<!--
+  TODO: Show the filtering visualizations.
+  This'll require a new nextflow process that does stepwise filtering to show what's lost at each step.
+  idea: maybe rather than doing it linearly, allow the user to check boxes to decide which filtering
+  steps to include, so that they can see cumulative effects for any combination rather than just
+  one after the next
+-->
+
+# Pairwise F<sub>st</sub> by minimum coverage {.tabset}
+
+```{r fst-cov-all, results='asis'}
+all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
+
+all_pools %>%
+  iwalk(\(all_shared,hdr) {
+    cat(str_glue("## {hdr} {{.tabset}}\n\n"))
+    
+    fst %>%
+      group_by(method) %>%
+      group_walk(\(fst_data,method) {
+        cat(str_glue("### {method$method}\n\n"))
+        
+        if (all_shared) {
+          unique_pairs <- fst_data %>%
+            distinct(pop1,pop2) %>%
+            nrow()
+          fst_data <- fst_data %>%
+            group_by(chrom,pos) %>%
+            filter(n() == unique_pairs) %>%
+            ungroup()
+        }
+        
+        fst_cov <- seq(params$min_cov,params$max_cov,params$cov_step) %>%
+          map(\(cov) {
+            fst_data %>%
+              filter(avg_min_cov >= cov) %>%
+              mutate(cutoff=cov)
+          }) %>%
+          list_rbind()
+        fst_grp <- fst_cov %>%
+          group_by(pop1,pop2,cutoff) %>%
+          summarise(
+            fst_sd = sd(fst),
+            fst_se = fst_sd / sqrt(n()),
+            cov = mean(avg_min_cov),
+            snps = n(),
+            contigs = n_distinct(chrom),
+            snps_per_contig = snps / contigs,
+            fst = mean(fst)
+          ) %>%
+          mutate(pair = str_glue("{pop1} - {pop2}")) %>%
+          arrange(cutoff,pair) %>%
+          ungroup()
+        fig <- fst_grp %>%
+          plot_ly(
+            x = ~ fst,
+            y = ~ pair,
+            color = ~snps,
+            frame = ~str_glue("≥{cutoff}"),
+            text = ~contigs,
+            hoverinfo = ~pair,
+            type = 'scatter',
+            mode = 'markers',
+            marker = list(size = 12)
+            # height = 1200
+          ) %>%
+          colorbar(title = "SNPs") %>%
+          layout(
+            margin=list(l = 100, r = 20, b = 10, t = 30),
+            yaxis = list(title="Comparison",tickangle=-35,tickfont=list(size=12)),
+            xaxis = list(title="F<sub>st</sub>",tickfont=list(size=12)),
+            title = list(text=str_glue("F<sub>st</sub> ({method$method}) - {hdr}"), y=0.95)
+          ) %>%
+          animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
+          animation_button(visible = FALSE)
+          print(htmltools::tagList(fig))
+      })
+  })
+
+```
+
+# Heatmaps {.tabset}
+
+```{r, heatmap-setup, results='asis'}
+# value_map <- c(
+#   'F<sub>st</sub>' = 'fst',
+#   'SNPs' = 'snps',
+#   'Mean coverage' = 'cov'
+# )
+var_pairs <- list(
+  list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako"), c("pop2","pop1","fst_sd","viridis::inferno")),
+  list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo"), c("pop2","pop1","snps_per_contig","viridis::rocket")),
+  list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis"), c("pop2","pop1","cov_sd","viridis::plasma")),
+  list("Contigs",c("pop1","pop2","contigs","scico::batlowW"), rep(NA,4))
+)
+
+value_map <- c(
+  fst = "F<sub>st</sub>",
+  fst_sd = "F<sub>st</sub> (SD)",
+  fst_se = "F<sub>st</sub> (SEM)",
+  snps = "SNPs",
+  cov = "Mean coverage",
+  cov_sd = "Coverage (SD)",
+  cov_se = "Coverage (SEM)",
+  snps_per_contig = "SNPs per contig",
+  contigs = "Contigs"
+) 
+
+form <- \(x) as.formula(str_glue("~{x}"))
+
+cscale <- function(pal,n=10) {
+  paletteer_c(pal,n+1) %>%
+    imap(\(col,i) {
+      list((i-1)/n,col)
+    })
+}
+
+bg_cols <- c('#0b1211', "#0b1211")
+
+fst %>%
+  group_by(method,pop1,pop2) %>%
+  summarise(
+    fst_sd = sd(fst),
+    fst_se = fst_sd / sqrt(n()),
+    cov = mean(avg_min_cov),
+    cov_sd = sd(avg_min_cov),
+    cov_se = cov_sd / sqrt(n()),
+    snps = n(),
+    contigs = n_distinct(chrom),
+    snps_per_contig = snps / contigs,
+    fst = mean(fst)
+  ) %>%
+  ungroup() %>%
+  group_by(method) %>%
+  group_walk(\(fst_data,method) {
+    cat(str_glue("## {method$method} {{.tabset}}\n\n"))
+    
+    all_pops <- sort(union(unique(fst_data$pop1),unique(fst_data$pop2)))
+    hmd <- fst_data %>% 
+      arrange(pop1,desc(pop2)) %>%
+      mutate(
+        pop1 = factor(pop1,levels=all_pops),
+        pop2 = factor(pop2,levels=rev(all_pops))
+      ) 
+    
+    # get tow row of plot
+    last_l <- last(levels(hmd$pop2))
+    # reverse pop1/pop2 and set everything to NA
+    top_row <- hmd %>%
+      filter(pop1 == last_l) %>%
+      mutate(pp=pop1,pop1=pop2,pop2=pp) %>%
+      select(-pp) %>%
+      mutate(across(where(is.numeric),~NA))
+    # bind dummy values to plot data
+    hmd <- hmd %>%
+      bind_rows(top_row)
+    
+    var_pairs %>%
+      walk(\(trace_vars) {
+        
+        hdr <- trace_vars[[1]]
+        # if (!all(is.na(trace_vars[[2]]))) {
+        #   hdr <- str_glue("{value_map[trace_vars[[1]][3]]} / {value_map[trace_vars[[2]][3]]}") 
+        # } else {
+        #   hdr <- str_glue("{value_map[trace_vars[[1]][3]]}") 
+        # }
+        cat(str_glue("### {hdr}\n\n"))
+        
+        fig <- hmd %>%
+          plot_ly(hoverongaps=FALSE)
+        fig <- trace_vars[-1] %>%
+          reduce(\(f,v) {
+            if (!all(is.na(v))) {
+              f %>%
+                add_trace(
+                  type = "heatmap",
+                  x = form(v[1]),
+                  y = form(v[2]),
+                  z = form(v[3]),
+                  colorscale = cscale(v[4],n = 100),
+                  colorbar = list(title=list(text=value_map[v[3]])),
+                  hovertemplate=str_glue("{value_map[v[3]]}: %{{z:.3f}}<extra></extra>")
+                ) 
+            } else return(f)
+          },.init = fig) %>%
+          layout(
+            xaxis = list(title = "Pool 1"),
+            yaxis = list(title = "Pool 2")
+          )
+        print(htmltools::tagList(fig))
+      })
+    # value_map %>% 
+    #   iwalk(\(col,measure) {
+    #     cat(str_glue("### {measure}\n\n"))
+    #     hmd <- fst_data %>% 
+    #       rename_with(\(c) "val", .cols = all_of(col)) %>%
+    #       select(pop1,pop2,val) %>%
+    #       arrange(pop1,desc(pop2)) %>%
+    #       mutate(
+    #         across(starts_with("pop"),factor),
+    #         pop2 = forcats::fct_rev(pop2)
+    #       ) 
+        
+        # fig <- hmd %>%
+        #   plot_ly(
+        #     x = ~pop1, 
+        #     y = ~pop2, 
+        #     z = ~val, 
+        #     colors = pal, 
+        #     type = "heatmap",
+        #     colorbar = list(
+        #       title = list(
+        #         text=measure,
+        #         font=list(color="lightgrey", family = "Times New Roman")
+        #       ),
+        #       tickfont = list(size = 12, color="lightgrey", family = "Times New Roman"),
+        #       len = 0.75
+        #     ) 
+        #   ) %>%
+        #   layout(
+        #     margin=list(l = 100, r = 20, b = 80, t = 45),
+        #     yaxis = list(
+        #       tickangle=0, showgrid = F,
+        #       tickfont=list(size = 16, color = "lightgrey", family = "Times New Roman")
+        #     ),
+        #     xaxis = list(
+        #       tickangle=45, showgrid = F,
+        #       tickfont=list(size = 16, color = "lightgrey", family = "Times New Roman")
+        #     ),
+        #     title = list(
+        #       text=str_glue("Pairwise {measure}"),
+        #       y=.97,
+        #       font = list(size = 20, color = "lightgrey",  family = "Times New Roman")
+        #     ),
+        #     plot_bgcolor = bg_cols[1], 
+        #     paper_bgcolor = bg_cols[2]
+        #   )
+      })
+  # })
+```
