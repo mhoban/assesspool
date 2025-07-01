@@ -127,7 +127,6 @@ fst <- fst_wide %>%
   },.cols = -c(chrom:pos)) %>%
   pivot_longer(-c(chrom:pos),names_to=c("pop1","pop2",".value"),names_pattern = "^([^:]+):(.+)\\.(fst)$") %>%
   filter(!is.na(fst))
-  # filter(!is.na(fst),start == end)
 
 freq_snps <- freq_snps %>%
   pivot_longer(-c(CHROM:ALT,starts_with("TOTAL",ignore.case = FALSE)),names_to = c("pool","measure"),values_to="count",names_pattern = "^(.+)\\.([^.]+)$") %>%
@@ -152,7 +151,7 @@ combined <- fst %>%
     TOTAL.REF_CNT != TOTAL.DEPTH,
     TOTAL.DEPTH >= min_depth
   ) %>%
-  mutate( 
+  mutate(
     avg_min_cov = pmin(DEPTH.pop1, DEPTH.pop2),
     method = calc_method
   ) %>%
