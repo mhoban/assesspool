@@ -116,16 +116,20 @@ if (all(c("start","end") %in% names(fst_wide))) {
 
 # load fst file, pivot long, and filter out NAs
 fst <- fst_wide %>%
-  select(chrom:pos,ends_with(".fst",ignore.case = FALSE)) %>%
-  rename_with(\(n) {
-    str_match(n,"^(.+):(.+)\\.(fst)$") %>%
-      array_branch(1) %>%
-      map_chr(\(x) {
-        f <- sort(x[2:3])
-        str_c(f[1],":",f[2],".",x[4])
-      })
-  },.cols = -c(chrom:pos)) %>%
-  pivot_longer(-c(chrom:pos),names_to=c("pop1","pop2",".value"),names_pattern = "^([^:]+):(.+)\\.(fst)$") %>%
+  { 
+    if (calc_method == "grenedalf") {
+      select(.,chrom:pos,ends_with(".fst",ignore.case = FALSE)) %>%
+        rename_with(\(n) {
+          str_match(n,"^(.+):(.+)\\.(fst)$") %>%
+            array_branch(1) %>%
+            map_chr(\(x) {
+              f <- sort(x[2:3])
+              str_c(f[1],":",f[2],".",x[4])
+            })
+        },.cols = -c(chrom:pos)) %>%
+        pivot_longer(-c(chrom:pos),names_to=c("pop1","pop2",".value"),names_pattern = "^([^:]+):(.+)\\.(fst)$")
+    } else select(.,chrom,pos,pop1,pop2,fst)
+  } %>%
   filter(!is.na(fst))
 
 freq_snps <- freq_snps %>%

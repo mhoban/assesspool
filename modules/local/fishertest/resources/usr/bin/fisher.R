@@ -98,7 +98,6 @@ option_list <- list(
   make_option(c("-f", "--prefix"), action="store", default="", type='character', help="Output file prefix"),
   make_option(c("-o", "--output-dir"), action="store", default=".", type='character', help="Output directory"),
   make_option(c("-t", "--threads"), action="store", default=1, type='double', help="Number of threads"),
-  make_option(c("-L", "--long-output"), action="store_true", default=FALSE, type='logical', help="Produce output in long format (separate columns for each pool)"),
   make_option(c("-l", "--lines-per-thread"), action="store", default=1e06, type='double', help="Number of lines to load per thread")
 )
 
@@ -142,7 +141,6 @@ save_all      <- opt$options$all_snps
 adjust_p      <- opt$options$adjust_pval
 adjust_method <- opt$options$adjust_method
 pools         <- opt$options$pools
-long_output   <- opt$options$long_output
 
 
 
@@ -233,38 +231,38 @@ if (adjust_p) {
 }
 
 
-pool_col <- paste0(paste0(pools,collapse=":"),".fisher")
-
 if (save_all & window_size > 1) {
   ss <- sprintf("%s/%s_%s_all_snps_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"))
   fisher_results %>%
     mutate(
-      "{pool_col}" := -log10(pval),
+      fisher = -log10(pval),
+      pop1 = pools[1],
+      pop2 = pools[2],
       window_size = 1,
       covered_fraction = 1,
       start=pos,
       end=pos,
     ) %>%
-    select(chrom,start,middle=pos,end,snps,covered_fraction,avg_min_coverage = min_cov,all_of(pool_col)) %>%
+    select(chrom,pos,snps,covered_fraction,avg_min_cov = min_cov,pop1,pop2,fisher) %>%
     write_tsv(ss)
 }
 
 fisher_results <- fisher_results %>%
   group_by(chrom,middle,start,end,snp_count) %>%
   summarise(
-    "{pool_col}" := -log10(p_combine(pval)),
+    fisher = -log10(p_combine(pval)),
+    pop1 = pools[1],
+    pop2 = pools[2],
     window_size = n(),
     covered_fraction = unique(snp_count)/window_size,
-    avg_min_coverage = mean(min_cov)
+    avg_min_cov = mean(min_cov)
   ) %>%
-  select(chrom,start,middle,end,window_size,covered_fraction,avg_min_coverage,all_of(pool_col))  %>%
-  ungroup()
-
-if (long_output) {
-  fisher_results <- fisher_results %>%
-    pivot_longer(ends_with(".fisher"),names_to=c("pop1","pop2",".value"),names_pattern = "^([^:]+):(.+)\\.(fisher)$") 
-}
+  ungroup() %>%
+  mutate(
+    pos = floor((start+end)/2),
+    method = 'assesspool'
+  ) %>%
+  select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fisher,method)
 
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)
 write_tsv(fisher_results,ss)
-# hello

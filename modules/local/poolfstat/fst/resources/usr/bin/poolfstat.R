@@ -122,11 +122,10 @@ snp_fst <- pooldata@snp.info %>%
       window_size = opt$options$window_size,
       covered_fraction = 1,
       # depth = rowSums(pooldata@readcoverage),
-      avg_min_coverage = do.call(pmin,as.data.frame(pooldata@readcoverage)),
-      "{pools}" := fst$snp.Fstats$Fst
+      avg_min_cov = do.call(pmin,as.data.frame(pooldata@readcoverage)),
+      pop1 = opt$options$pool_names[1],
+      pop2 = opt$options$pool_names[2],
+      fst = fst$snp.Fstats$Fst
     ) %>%
-    select(chrom,pos,window_size,covered_fraction,avg_min_coverage,all_of(pools))
+    select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fst)
 write_tsv(snp_fst,str_glue("{opt$options$prefix}_{fn}.fst"),col_names=opt$options$headers)
-
-
-

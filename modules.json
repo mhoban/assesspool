@@ -30,6 +30,11 @@
                         "git_sha": "caab1314ca62679b629da4c79afa9a4cab2bb8ee",
                         "installed_by": ["modules"]
                     },
+                    "ripgrep": {
+                        "branch": "master",
+                        "git_sha": "81880787133db07d9b4c1febd152c090eb8325dc",
+                        "installed_by": ["modules"]
+                    },
                     "rmarkdownnotebook": {
                         "branch": "master",
                         "git_sha": "ba9efe74bd993e9ce77441104e48120834d5886e",

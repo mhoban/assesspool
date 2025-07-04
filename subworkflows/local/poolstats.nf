@@ -7,6 +7,8 @@ include { POOLFSTAT_FST           } from '../../modules/local/poolfstat/fst/main
 include { FISHERTEST              } from '../../modules/local/fishertest/main'
 include { JOINFREQ                } from '../../modules/local/joinfreq/main'
 include { GAWK as SPLIT_SYNC      } from '../../modules/nf-core/gawk/main'
+include { GAWK as REHEADER_FST    } from '../../modules/nf-core/gawk/main'
+include { GAWK as REHEADER_FISHER } from '../../modules/nf-core/gawk/main'
 include { combn                   } from "../../modules/local/popoolation2/combn.nf"
 
 workflow POOLSTATS {
@@ -70,10 +72,13 @@ workflow POOLSTATS {
     // run popoolation fst if requested
     if (params.popoolation2) {
         POPOOLATION2_FST( ch_split_sync )
+        REHEADER_FST( POPOOLATION2_FST.out.fst, [] )
         ch_versions = ch_versions.mix(POPOOLATION2_FST.out.versions.first())
+        ch_versions = ch_versions.mix(REHEADER_FST.out.versions.first())
 
         // mix fst results
-        ch_fst = ch_fst.mix( POPOOLATION2_FST.out.fst.map { meta, fst -> [ meta, fst, "popoolation" ] } )
+        // ch_fst = ch_fst.mix( POPOOLATION2_FST.out.fst.map { meta, fst -> [ meta, fst, "popoolation" ] } )
+        ch_fst = ch_fst.mix( REHEADER_FST.out.output.map { meta, fst -> [ meta, fst, "popoolation" ] } )
     }
 
     // run poolfstat fst if requested
@@ -141,9 +146,23 @@ workflow POOLSTATS {
             .set{ ch_split_freq }
 
         // run pairwise fisher tests
-        // TODO: join fisher results with snp frequencies
-        ch_fisher = FISHERTEST( ch_split_freq ).fisher
+        FISHERTEST( ch_split_freq ).fisher
+
+        // mix fisher results & versions
+        ch_fisher = ch_fisher.mix( FISHERTEST.out.fisher )
         ch_versions = ch_versions.mix(FISHERTEST.out.versions.first())
+    }
+
+    // run fisher tests with popoolation2
+    if (params.fisher_test_popoolation) {
+        POPOOLATION2_FISHERTEST( ch_split_sync )
+        REHEADER_FISHER( POPOOLATION2_FISHERTEST.out.fisher, [] )
+
+        // mix fisher results & versions
+        // ch_fisher = ch_fisher.mix( POPOOLATION2_FISHERTEST.out.fisher )
+        ch_fisher = ch_fisher.mix( REHEADER_FISHER.out.output )
+        ch_versions = ch_versions.mix(POPOOLATION2_FISHERTEST.out.versions.first())
+        ch_versions = ch_versions.mix(REHEADER_FISHER.out.versions.first())
     }
 
 

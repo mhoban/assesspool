@@ -214,7 +214,7 @@
                     "description": "Minimum reads placed left."
                 },
                 "read_balance_right": {
-                    "type": "string",
+                    "type": "integer",
                     "description": "Minimum reads placed right."
                 },
                 "quality_depth_ratio": {
@@ -244,13 +244,13 @@
                 "variant_type": {
                     "type": "string",
                     "description": "Variant type.",
-                    "enum": ["REF", "SNP", "MNP", "INDEL"]
+                    "enum": ["ref", "snp", "mnp", "indel"]
                 },
                 "min_alternate_observations": {
                     "type": "integer",
                     "description": "Minimum observations of the alternate haplotype."
                 },
-                "visualizations": {
+                "visualize_filters": {
                     "type": "boolean",
                     "default": true,
                     "description": "Generate visualizations of VCF filtering results."
@@ -284,9 +284,13 @@
                     "type": "boolean",
                     "description": "Convert missing observations to zeroes."
                 },
-                "fisher_test": {
+                "fisher_test_popoolation": {
                     "type": "boolean",
                     "description": "Perform Fisher's exact test using `popoolation2`"
+                },
+                "fisher_test": {
+                    "type": "boolean",
+                    "description": "Perform Fisher's exact test`"
                 },
                 "min_count": {
                     "type": "integer",

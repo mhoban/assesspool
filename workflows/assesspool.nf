@@ -9,6 +9,7 @@ include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_assesspool_pipeline'
 include { FILTER                 } from '../subworkflows/local/filter.nf'
+include { FILTER_SIM             } from '../subworkflows/local/filter_sim/main.nf'
 include { PREPROCESS             } from '../subworkflows/local/preprocess.nf'
 include { POOLSTATS              } from '../subworkflows/local/poolstats.nf'
 include { POSTPROCESS             } from '../subworkflows/local/postprocess.nf'
@@ -28,15 +29,19 @@ workflow ASSESSPOOL {
     ch_versions = Channel.empty()
 
     // run VCF preprocessing
-    PREPROCESS(ch_samplesheet)
+    PREPROCESS( ch_samplesheet )
     ch_vcf = PREPROCESS.out.vcf
     ch_ref = PREPROCESS.out.ref
     ch_versions = ch_versions.mix(PREPROCESS.out.versions.first())
 
     // run filtering if desired
-    FILTER(ch_vcf)
+    FILTER( ch_vcf )
     ch_filtered = FILTER.out.vcf
     ch_versions = ch_versions.mix(FILTER.out.versions.first())
+
+    if (params.visualize_filters) {
+        FILTER_SIM( ch_vcf )
+    }
 
 
     // calculate pool statistics (fst, fisher, etc.)
@@ -50,7 +55,8 @@ workflow ASSESSPOOL {
         ch_ref,
         POOLSTATS.out.sync,
         POOLSTATS.out.split_sync,
-        POOLSTATS.out.frequency
+        POOLSTATS.out.frequency,
+        POOLSTATS.out.fisher
     )
 
     //

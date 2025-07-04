@@ -15,7 +15,8 @@ output:
 date: "`r Sys.Date()`"
 params:
   debug: FALSE
-  fst_file: /Users/deadbilly/projects/pipeline/pool/nf-core-assesspool/testing/output/joinfreq/fst_freq_all.tsv
+  fst_file: NULL
+  fisher: NULL
   tz: NULL
   viz_filter: FALSE
   min_cov: 10
@@ -57,8 +58,49 @@ datatable(NULL)
 # load the plotly js
 plot_ly()
 
-# load fst data
-fst <- read_tsv(params$fst_file)
+# plotly horizontal line
+hline <- function(y = 0, color = "black") {
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = y,
+    y1 = y,
+    line = list(color = color)
+  )
+}
+
+# geometric mean function
+gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
+  if(any(x < 0, na.rm = TRUE)){
+    return(NaN)
+  }
+  if(zero.propagate){
+    if(any(x == 0, na.rm = TRUE)){
+      return(0)
+    }
+    exp(mean(log(x), na.rm = na.rm))
+  } else {
+    exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+  }
+}
+
+# get a sequence of coverage cutoffs from input parameters
+cutoffs <- seq(params$min_cov,params$max_cov,params$cov_step)
+
+# load pool data
+# start with fst
+pool_data <- read_tsv(params$fst_file)
+
+fisher_data <- NULL
+
+# load fisher data if applicable
+show_fisher <- !is.null(params$fisher)
+if (show_fisher) {
+  fisher_data <- read_tsv(params$fisher) %>%
+    select(chrom,pos,pop1,pop2,avg_min_cov,log_fisher=fisher,method)
+}
 ```
 
 <!-- this section only gets processed if params$debug is TRUE -->
@@ -101,19 +143,19 @@ cat("# VCF Filtering\n")
 all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
 
 # walk through calculation methods
-fst %>%
+pool_data %>%
   group_by(method) %>%
   group_walk(\(fst_data,method) {
     # output tab header
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-    
+
     # walk through all_shared elements
     # (whether or not we're looking only at snps shared across all pools)
     all_pools %>%
       iwalk(\(all_shared,hdr) {
         # output tab header
         cat(str_glue("### {hdr}\n\n"))
-        
+
         # filter data for all pools if necessary
         if (all_shared) {
           # get all unique pool names
@@ -123,8 +165,8 @@ fst %>%
               unique(fst_data$pop2)
             )
           )
-          
-          # group data by snp (chrom/pos) and retain 
+
+          # group data by snp (chrom/pos) and retain
           # snps where all populations are represented in comparisons
           # (either side)
           fst_data <- fst_data %>%
@@ -132,13 +174,11 @@ fst %>%
             filter(all(all_pools %in% unique(c(unique(pop1),unique(pop2))))) %>%
             ungroup()
         }
-        
+
         # repeatedly filter the dataset for different coverage levels
         # and bind those together into a new dataset
-        
-        # first get a sequence of coverage cutoffs from input parameters
-        cutoffs <- seq(params$min_cov,params$max_cov,params$cov_step)
-        
+
+
         # now filter the main dataset for each cutoff level
         fst_cov <- cutoffs %>%
           map(\(cov) {
@@ -150,7 +190,7 @@ fst %>%
           }) %>%
           # and bind resulting subsets together into a superset
           list_rbind()
-        
+
         # summarize the data by comparison and cutoff level
         fst_grp <- fst_cov %>%
           group_by(pop1,pop2,cutoff) %>%
@@ -168,7 +208,7 @@ fst %>%
           # sort by cutoff and comparison
           arrange(cutoff,pair) %>%
           ungroup()
-        
+
         # plog the figure
         fig <- fst_grp %>%
           plot_ly(
@@ -193,7 +233,7 @@ fst %>%
           # customize slider and remove play button
           animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
           animation_button(visible = FALSE)
-        
+
         # output the figure to html
         print(htmltools::tagList(fig))
       })
@@ -201,7 +241,9 @@ fst %>%
 
 ```
 
-# Heatmaps {.tabset}
+# F<sub>st</sub> method correlations {.tabset}
+
+# Summary heatmaps {.tabset}
 
 ```{r, heatmap-setup, results='asis'}
 
@@ -209,15 +251,15 @@ fst %>%
 # each item consists of: display name, bottom-left heatmap, and (optionally) top-right heatmap
 # individual heatmap options are: x value, y value, variable name, and color palette (from paletteer_c)
 var_pairs <- list(
-  list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako"), c("pop2","pop1","fst_sd","viridis::inferno")),
-  list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo"), c("pop2","pop1","snps_per_contig","viridis::rocket")),
-  list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis"), c("pop2","pop1","cov_sd","viridis::plasma")),
-  list("Contigs",c("pop1","pop2","contigs","scico::batlowW"), rep(NA,4))
+  list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f")),
+  list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f")),
+  list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f")),
+  list("Contigs",c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
 )
 
 # map variable names to display names
 value_map <- c(
-  fst = "F<sub>st</sub>",
+  fst = "Mean F<sub>st</sub>",
   fst_sd = "F<sub>st</sub> (SD)",
   fst_se = "F<sub>st</sub> (SEM)",
   snps = "SNPs",
@@ -225,8 +267,10 @@ value_map <- c(
   cov_sd = "Coverage (SD)",
   cov_se = "Coverage (SEM)",
   snps_per_contig = "SNPs per contig",
-  contigs = "Contigs"
-) 
+  contigs = "Contigs"#,
+  # fisher = "p-value (Fisher's exact test)"k,
+  # log_fisher = "-log<sub>10</sub>(p-value) (Fisher's exact test)"
+)
 
 # shortcut to create a formula from a string
 # ex: form("hello") creates ~hello as a formula
@@ -246,7 +290,7 @@ cscale <- function(pal,n=10) {
 bg_cols <- c('#0b1211', "#0b1211")
 
 # summarize dataset (as above) by method and pool comparison
-fst %>%
+pool_data %>%
   group_by(method,pop1,pop2) %>%
   summarise(
     fst_sd = sd(fst),
@@ -257,7 +301,14 @@ fst %>%
     snps = n(),
     contigs = n_distinct(chrom),
     snps_per_contig = snps / contigs,
-    fst = mean(fst)
+    t_p = t.test(fst,mu=0,alternative = "greater")$p.value,
+    fst = mean(fst)#,
+    # fisher_sd = sd(fisher)
+    # I don't think these belong here
+    # log_fisher_sd = sd(log_fisher),
+    # fisher_gm = gm_mean(fisher),
+    # fisher = mean(fisher),
+    # log_fisher = mean(log_fisher)
   ) %>%
   ungroup() %>%
   # walk through calculation methods
@@ -265,27 +316,27 @@ fst %>%
   group_walk(\(fst_data,method) {
     # output tab header
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-    
+
     # this is a little hack to get plotly to consider all heatmap cells
     # to be "active". basically, we add in NA entries for the comparisons that
     # don't exist. the upshot is that hovertext works for every cell
-    
+
     # first, get all pool names
     all_pops <- sort(union(unique(fst_data$pop1),unique(fst_data$pop2)))
-    
+
     # convert pool names to factors with all possible levels
     # make sure pop2 has levels in reverse so the figure looks right
     # (i.e., a nice triangle)
-    hmd <- fst_data %>% 
+    hmd <- fst_data %>%
       arrange(pop1,desc(pop2)) %>%
       mutate(
         pop1 = factor(pop1,levels=all_pops),
         pop2 = factor(pop2,levels=rev(all_pops))
-      ) 
-    
+      )
+
     # get the factor level that would be the top row of the plot
     top_level <- last(levels(hmd$pop2))
-    
+
     # now we get everything for pop1 (x) == top_level
     top_row <- hmd %>%
       filter(pop1 == top_level) %>%
@@ -295,29 +346,29 @@ fst %>%
       select(-temp) %>%
       # set all numeric values to NA
       mutate(across(where(is.numeric),~NA))
-      
+
     # bind dummy values to plot data
     # it seems to matter that we bind these
     # to the end, rather than the other way around
     hmd <- hmd %>%
       bind_rows(top_row)
-    
+
     # now we walk through our different display pairs
     var_pairs %>%
       walk(\(trace_vars) {
-        
+
         # pull out the header text
         hdr <- trace_vars[[1]]
         # and show the tab header
         cat(str_glue("### {hdr}\n\n"))
-        
+
         # create an empty plotly figure
         fig <- hmd %>%
           plot_ly(hoverongaps=FALSE)
-        
+
         # now we exclude the first element of trace_vars
         # and reduce the rest to a single plotly figure
-        # that c(1,2) is just to keep track of if we're on 
+        # that c(1,2) is just to keep track of if we're on
         # the first or second half
         fig <- trace_vars[-1] %>%
           reduce2(c(1,2),\(f,v,i) {
@@ -346,8 +397,8 @@ fst %>%
                   # text template
                   text = ~str_glue("{pop1} - {pop2}"),
                   # hover text template (hide the trace name with <extra></extra>)
-                  hovertemplate=str_glue("%{{text}}<br>{value_map[v[3]]}: %{{z:.3f}}<extra></extra>")
-                ) 
+                  hovertemplate=str_glue("%{{text}}<br>{value_map[v[3]]}: %{{z:{v[5]}}}<extra></extra>")
+                )
             } else return(f)
           },.init = fig) %>%
           # name the figure
@@ -358,5 +409,41 @@ fst %>%
         # print the figure as html
         print(htmltools::tagList(fig))
       })
+  })
+```
+
+```{r, fisher, results='asis', eval=show_fisher}
+cat("# Fisher test plots {.tabset}\n\n")
+
+fisher_data %>%
+  group_by(method) %>%
+  group_walk(\(fishr,method) {
+    cat(str_glue("## {method$method} {{.tabset}}\n\n"))
+    fisher_cov <- cutoffs %>%
+      set_names() %>%
+      map(\(cov) {
+        fishr %>%
+          # filter by average minimum coverage
+          filter(avg_min_cov >= cov) %>%
+          # retain the cutoff level in the data
+          # mutate(cutoff=cov)  %>%
+          group_by(chrom,pos) %>%
+          summarise( log_fisher = mean(log_fisher) ) %>%
+          ungroup() %>%
+          arrange(chrom,pos) %>%
+          mutate(snp = row_number())
+      })
+
+      fisher_cov %>%
+        iwalk(\(fish,cov) {
+          cat(str_glue("### Coverage ≥{cov}\n\n"))
+          fig <- ggplot(fish) +
+            geom_point(aes(x=snp,y=log_fisher),size=1) +
+            geom_hline(yintercept = -log10(0.05), color="red") +
+            theme_bw() +
+            labs(x = 'SNP', y=expression(paste(x[i])))
+          print(fig)
+          cat("\n\n")
+        })
   })
 ```

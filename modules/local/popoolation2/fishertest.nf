@@ -10,7 +10,7 @@ process POPOOLATION2_FISHERTEST {
         'biocontainers/popoolation2:1.201--pl5321hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(sync), val(pool_map)
+    tuple val(meta), val(pool_map), path(sync)
 
     output:
     tuple val(meta), path("*.fisher"), emit: fisher
@@ -23,16 +23,22 @@ process POPOOLATION2_FISHERTEST {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') + ".fisher" }.join("\t")
+    // def pools = combn(pool_map.collect{ it.key }, 2).collect { it.sort().join(':') + ".fisher" }.join("\t")
+    def pools = pool_map.collect{ it.key }.sort()
     """
     fisher-test.pl \\
         --input "${sync}" \\
         --output "${sync.BaseName}.fisher" \\
         ${args}
 
-        for fisher in *.fisher; do
-            sed -i \$'1i chrom\tpos\twindow_size\tcovered_fraction\tavg_min_coverage\t${pools}' \$fisher
-        done
+    # restructure output from popoolation to work better with the pipeline
+    # for fisher in *.fisher; do
+    #     perl -i -F'\\t' -lanE '
+    #     BEGIN{\$,="\\t"}
+    #     \$.==1 && print "chrom\\tpos\\twindow_size\\tcovered_fraction\\tavg_min_cov\\tpop1\\tpop2\\tfisher\\tmethod";
+    #     \$n=\$#F;\$F[\$n]=~s/^.+=//;\$F[\$n+3]="popoolation";\$F[\$n+2]=\$F[\$n];\$F[\$n+1]="${pools[0]}";\$F[\$n]="${pools[1]}";print @F
+    #     ' \$fisher
+    # done
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
