@@ -10,6 +10,7 @@ workflow POSTPROCESS {
     ch_split_sync
     ch_frequency
     ch_fisher
+    ch_filter
 
     main:
 
@@ -30,9 +31,11 @@ workflow POSTPROCESS {
         .collect()
     ch_params = ch_input_files.map {
         [report_file_names, it.collect{ it.name }].transpose().collectEntries() +
-            [ 'viz_filter': params.visualize_filters ] +
-            [ 'tz': TimeZone.getDefault().getID() ] // this is required because something about the container goes nuts without it
+        [ 'viz_filter': params.visualize_filters, 'tz': TimeZone.getDefault().getID() ] // +
+        //[ debug: true ]
     }
+        .mix( ch_filter )
+        .reduce{ a, b -> a + b }
 
     CREATE_REPORT( ch_report, ch_params, ch_input_files )
 

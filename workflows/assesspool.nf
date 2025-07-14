@@ -37,8 +37,11 @@ workflow ASSESSPOOL {
     ch_filtered = FILTER.out.vcf
     ch_versions = ch_versions.mix(FILTER.out.versions.first())
 
+    ch_filter_sim = Channel.empty()
+
     if (params.visualize_filters) {
         FILTER_SIM( ch_vcf )
+        ch_filter_sim = FILTER_SIM.out.filter_summary
     }
 
 
@@ -54,7 +57,8 @@ workflow ASSESSPOOL {
         POOLSTATS.out.sync,
         POOLSTATS.out.split_sync,
         POOLSTATS.out.frequency,
-        POOLSTATS.out.fisher
+        POOLSTATS.out.fisher,
+        ch_filter_sim
     )
 
     //
