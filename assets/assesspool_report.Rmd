@@ -14,11 +14,13 @@ output:
     toc: yes
 date: "`r Sys.Date()`"
 params:
-  debug: FALSE
-  fst_file: NULL
-  fisher: NULL
-  tz: NULL
-  viz_filter: FALSE
+  debug: false
+  project: null
+  filters: null
+  fst_file: null
+  fisher: null
+  tz: null
+  viz_filter: false
   min_cov: 10
   max_cov: 70
   cov_step: 10
@@ -41,19 +43,22 @@ library(dplyr)
 library(stringr)
 library(purrr)
 library(paletteer)
+library(fs)
 
 if (params$debug) {
   options(show.error.locations = TRUE)
 }
 
 # set some global options
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 options(dplyr.summarise.inform = FALSE)
 ```
 
 ```{r init, include=FALSE}
 # Load the datatables js
-datatable(NULL)
+datatable(
+  matrix(), extensions="Buttons"
+)
 
 # load the plotly js
 plot_ly()
@@ -101,6 +106,22 @@ if (show_fisher) {
   fisher_data <- read_tsv(params$fisher) %>%
     select(chrom,pos,pop1,pop2,avg_min_cov,log_fisher=fisher,method)
 }
+
+# whether to show VCF filtering
+show_filter <- params$viz_filter & !is.null(params$filter)
+
+# used for tab selection
+all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
+
+# place where stuff gets saved
+data_dir <- "artifacts"
+
+# create artifacts dir
+# if it already exists nobody will care
+dir_create(data_dir)
+
+# move fst file into artifacts dir
+file_move(params$fst_file,data_dir)
 ```
 
 <!-- this section only gets processed if params$debug is TRUE -->
@@ -121,12 +142,187 @@ if (params$debug) {
 
 This report summarizes the output of population genetic analyses of a pool-seq RAD library.
 
-# Data
+# High-level summaries {.tabset}
 
-This section provides a summary of sample/pool metadata.
+```{r, summaries, results='asis'}
+  summary_datasets <- pool_data %>%
+  group_by(method) %>%
+  group_walk(\(fst_data,method) {
+    # output tab header
+    cat(str_glue("## {method$method} {{.tabset}}\n\n"))
 
-```{r, results='asis', eval=params$viz_filter}
+    # walk through all_shared elements
+    # (whether or not we're looking only at snps shared across all pools)
+    all_pools %>%
+      iwalk(\(all_shared,hdr) {
+        # output tab header
+        cat(str_glue("### {hdr}\n\n"))
+
+        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
+
+        # filter data for all pools if necessary
+        if (all_shared) {
+          # get all unique pool names
+          all_pools <- sort(
+            union(
+              unique(fst_data$pop1),
+              unique(fst_data$pop2)
+            )
+          )
+
+          # group data by snp (chrom/pos) and retain
+          # snps where all populations are represented in comparisons
+          # (either side)
+          fst_data <- fst_data %>%
+            group_by(chrom,pos) %>%
+            filter(all(all_pools %in% unique(c(unique(pop1),unique(pop2))))) %>%
+            ungroup()
+        }
+
+        # repeatedly filter the dataset for different coverage levels
+        # and bind those together into a new dataset
+        fst_cov <- cutoffs %>%
+          map(\(cov) {
+            fst_data %>%
+              # filter by average minimum coverage
+              filter(avg_min_cov >= cov) %>%
+              # retain the cutoff level in the data
+              mutate(cutoff=cov)
+          }) %>%
+          # and bind resulting subsets together into a superset
+          list_rbind()
+
+        # summarize the data by comparison and cutoff level
+        fst_grp <- fst_cov %>%
+          group_by(cutoff) %>%
+          summarise(
+            fst_sd = sd(fst),                 # std. dev. of fst
+            fst = mean(fst),                  # mean fst
+            fst_se = fst_sd / sqrt(n()),      # std. err. of fst
+            cov = mean(avg_min_cov),          # mean coverage
+            snps = n(),                       # snp count
+            contigs = n_distinct(chrom),      # contig count
+            snps_per_contig = snps / contigs, # mean snps per contig
+            ci_lower= fst - qt(0.975, n() -1) * fst_se,
+            ci_upper= fst + qt(0.975, n() -1) * fst_se
+          ) %>%
+          arrange(cutoff) %>%
+          ungroup() %>%
+          select(
+            `Coverage cutoff`=cutoff,
+            `Mean F<sub>st</sub>`=fst,
+            `F<sub>st</sub> (SD)`=fst_sd,
+            `F<sub>st</sub> (SEM)`=fst_se,
+            `Mean coverage`=cov,
+            SNPs=snps,
+            Contigs=contigs,
+            `SNPs per contig`=snps_per_contig,
+            `CI (lower)`=ci_lower,
+            `CI (upper)`=ci_upper
+          )
+
+        shared <- ifelse(all_shared,"all","shared")
+        filename <- str_glue("{method$method}_{shared}_summary")
+
+        js <- DT::JS(
+          "function ( data, type, row, meta ) {",
+          "return type === 'display' ?",
+          "'<span class=\"num\" title=\"'+data+'\">'+(Math.round((data+Number.EPSILON)*1000)/1000).toLocaleString()+'</span>' :",
+          "data;",
+          "}"
+        )
+
+
+        print(
+          htmltools::tagList(
+            datatable(
+              fst_grp,
+              escape = FALSE,
+              rownames = FALSE,
+              filter = "none",
+              autoHideNavigation = TRUE,
+              extensions = 'Buttons',
+              options = list(
+                dom = 'tB',
+                buttons = list(
+                  list(
+                    extend='csv',
+                    title=filename,
+                    exportOptions = list( modifier = list(page = "all"), orthogonal = "export"
+                    )
+                  )
+                ),
+                scrollX = TRUE,
+                columnDefs = list(
+                  list(
+                    targets = c(2:5,8:10)-1,
+                    render = js
+                  )
+                )
+              )
+            ) %>%
+              formatRound(c(1,6,7),digits=0)
+          )
+        )
+      })
+  })
+```
+
+```{r, results='asis', eval=show_filter}
 cat("# VCF Filtering\n")
+
+cat("<h4>Bar plot showing SNPs remaining after each filtering step.</h4>\n\n")
+cat("<h5><small>Note: filtering results displayed are independent, not cumulative.<br>Filters with no effect are not shown.</small></h5>\n\n")
+
+filters <- params$filters %>%
+  map(\(f) {
+    tibble(name = f$value$filter, snps = f$value$count)
+  }) %>%
+  list_rbind() %>%
+  arrange(desc(snps)) %>%
+  mutate(
+    name = forcats::fct_reorder(name,-snps),
+    name = forcats::fct_relevel(name,"before"),
+    filtered = snps[name == "before"] - snps,
+    filtered = case_when(
+      name == "before" ~ snps,
+      .default = filtered
+    )
+  ) %>%
+  filter(filtered > 0)
+
+font <- list(
+  family = "Courier New",
+  size = 14#,
+  # color = "grey97"
+)
+label <- list(
+  # bgcolor = "#232F34",
+  # bordercolor = "transparent",
+  font = font
+)
+
+num <- scales::comma#scales::label_number(big.mark = ",")
+t_fmt <- '<b>Before filtering: {num(snps[name == "before"])} SNPs<br>After filtering:  {num(snps)} SNPs</b>'
+fig <- ggplot(filters) +
+  geom_bar(aes(x=name,y=snps,fill=snps,text=str_glue(t_fmt)),stat="identity") +
+  scale_fill_paletteer_c("grDevices::Turku",direction = -1,name="SNPs remaining",labels=scales::comma) +
+  scale_y_continuous(labels=scales::comma) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
+        axis.title.x = element_text(margin = margin(t = -20)),
+        plot.title = element_text(hjust = 0.5),
+        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
+fig <- fig %>%
+  ggplotly(tooltip="text") %>%
+  config(displayModeBar = FALSE) %>%
+  layout(
+    xaxis = list(title = "Filter", fixedrange = TRUE),
+    yaxis = list(title = "SNPs remaining", fixedrange = TRUE)
+  )  %>%
+  style(hoverlabel = label)
+
+print(htmltools::tagList(fig))
 ```
 <!--
   TODO: Show the filtering visualizations.
@@ -139,9 +335,6 @@ cat("# VCF Filtering\n")
 # Pairwise F<sub>st</sub> by minimum coverage {.tabset}
 
 ```{r fst-cov-all, results='asis'}
-# used for tab selection
-all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
-
 # walk through calculation methods
 pool_data %>%
   group_by(method) %>%
@@ -228,7 +421,8 @@ pool_data %>%
             margin=list(l = 100, r = 20, b = 10, t = 30),
             yaxis = list(title="Comparison",tickangle=-35,tickfont=list(size=12)),
             xaxis = list(title="F<sub>st</sub>",tickfont=list(size=12)),
-            title = list(text=str_glue("F<sub>st</sub> ({method$method}) - {hdr}"), y=0.95)
+            title = list(text=str_glue("F<sub>st</sub> - {hdr}"), y=0.95)
+            # title = list(text=str_glue("F<sub>st</sub> ({method$method}) - {hdr}"), y=0.95)
           ) %>%
           # customize slider and remove play button
           animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
@@ -242,6 +436,73 @@ pool_data %>%
 ```
 
 # F<sub>st</sub> method correlations {.tabset}
+```{r, fst-correlation, results='asis'}
+methods <- unique(pool_data$method)
+# mc <- combn(methods,2)
+splot <- pool_data %>%
+  split(.$method)
+methods %>%
+  combn(2) %>%
+  array_branch(2) %>%
+  walk(\(pair) {
+    cat(str_glue("## F<sub>st</sub> correlation: {pair[1]} vs {pair[2]}\n\n"))
+    cat("<h5><small>Note: Due to potentially large datasets, these plots show only a subsample of 1,000 F<sub>st</sub> values.</small></h5>\n\n")
+
+    corr <- splot[[pair[1]]] %>%
+      inner_join(splot[[pair[2]]],by=c("chrom","pos","pop1","pop2"))
+
+    lmm <- lm(fst.y ~ fst.x, data=corr)
+    corr <- corr %>%
+      mutate(
+        predicted = lmm %>%
+          predict(corr %>% select(fst.x))
+      ) %>%
+      sample_n(1000)
+
+    xtitle <- unique(corr$method.x)
+    ytitle <- unique(corr$method.y)
+
+    fig <- corr %>%
+      plot_ly() %>%
+      add_trace(
+        x = ~fst.x,
+        y = ~fst.x,
+        type = 'scatter',
+        mode = 'lines',
+        # mode = 'lines+markers'#,
+        line = list(color = '#232323', width = 0.7)
+      ) %>%
+      add_trace(
+        x = ~fst.x,
+        y = ~fst.y,
+        type = 'scatter',
+        mode = 'markers',
+        marker = list(color = 'black')
+      ) %>%
+      add_trace(
+        x = ~fst.x,
+        y = ~predicted,
+        type = 'scatter',
+        mode = 'lines',
+        # mode = 'lines+markers'#,
+        line = list(color = 'lightskyblue', dash="dash", width = 0.7)
+      ) %>%
+      layout(
+        xaxis = list(title = str_glue("F<sub>st</sub> ({xtitle})")),
+        yaxis = list(title = str_glue("F<sub>st</sub> ({ytitle})"))
+      ) %>%
+      hide_guides()
+
+    print(htmltools::tagList(fig))
+    # fig <- ggplot(corr,aes(x=fst.x,y=fst.y)) +
+    #   geom_abline(slope=1,intercept=0,color="lightskyblue",linewidth=0.5,linetype="dashed") +
+    #   geom_point() +
+    #   geom_smooth(method="lm",se=FALSE,color="grey19",linewidth=0.5) +
+    #   xlab(str_glue("F<sub>st</sub> ({xtitle})")) +
+    #   ylab(str_glue("F<sub>st</sub> ({ytitle})"))
+    # print(fig)
+  })
+```
 
 # Summary heatmaps {.tabset}
 
@@ -251,11 +512,33 @@ pool_data %>%
 # each item consists of: display name, bottom-left heatmap, and (optionally) top-right heatmap
 # individual heatmap options are: x value, y value, variable name, and color palette (from paletteer_c)
 var_pairs <- list(
-  list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f")),
-  list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f")),
-  list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f")),
-  list("Contigs",c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
+  list(
+    title="F<sub>st</sub> (±SD)",
+    description="Lower triangle: mean pairwise F<sub>st</sub><br>Upper triangle: standard deviation of F<sub>st</sub>",
+    pairs=list(c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f"))
+  ),
+  list(
+    title="SNPs / SNPs per contig",
+    description="Lower triangle: pairwise shared SNPs contributing to F<sub>st</sub> calculation<br>Upper triangle: average shared SNPs per contig",
+    pairs=list(c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f"))
+  ),
+  list(
+    title="Mean coverage (±SD)",
+    description="Lower triangle: mean pairwise coverage<br>Upper triangle: pairwise coverage standard deviation",
+    pairs=list(c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f"))
+  ),
+  list(
+    title="Contigs",
+    description="Pairwise shared contigs",
+    pairs=list(c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
+  )
 )
+# var_pairs <- list(
+#   list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f")),
+#   list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f")),
+#   list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f")),
+#   list("Contigs",c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
+# )
 
 # map variable names to display names
 value_map <- c(
@@ -357,10 +640,12 @@ pool_data %>%
     var_pairs %>%
       walk(\(trace_vars) {
 
-        # pull out the header text
-        hdr <- trace_vars[[1]]
+        # pull out the header text and description
+        hdr <- trace_vars$title
+        desc <- trace_vars$description
         # and show the tab header
         cat(str_glue("### {hdr}\n\n"))
+        cat(str_glue("<h5>{desc}</h5>\n\n"))
 
         # create an empty plotly figure
         fig <- hmd %>%
@@ -370,7 +655,7 @@ pool_data %>%
         # and reduce the rest to a single plotly figure
         # that c(1,2) is just to keep track of if we're on
         # the first or second half
-        fig <- trace_vars[-1] %>%
+        fig <- trace_vars$pairs %>%
           reduce2(c(1,2),\(f,v,i) {
             # if the element is valid
             if (!all(is.na(v))) {
@@ -403,9 +688,13 @@ pool_data %>%
           },.init = fig) %>%
           # name the figure
           layout(
-            xaxis = list(title = "Pool 1"),
-            yaxis = list(title = "Pool 2")
-          )
+            xaxis = list(title = "Pool 1", fixedrange = TRUE),
+            yaxis = list(title = "Pool 2", fixedrange = TRUE)
+          ) %>%
+          # hide the mode bar
+          config(displayModeBar = FALSE)
+          # layout(xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE))
+
         # print the figure as html
         print(htmltools::tagList(fig))
       })
