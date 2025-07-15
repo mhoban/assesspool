@@ -204,7 +204,7 @@ fig <- ggplot(changed) +
   theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
         axis.title.x = element_text(margin = margin(t = -20)),
         plot.title = element_text(hjust = 0.5),
-        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm")) 
+        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
 
 fig <- fig %>%
   ggplotly(tooltip="text") %>%
@@ -226,16 +226,14 @@ summary_datasets <- pool_data %>%
   group_walk(\(fst_data,method) {
     # output tab header
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-    
+
     # walk through all_shared elements
     # (whether or not we're looking only at snps shared across all pools)
     all_pools %>%
       iwalk(\(all_shared,hdr) {
         # output tab header
-        cat(str_glue("### {hdr}\n\n"))
-        
-        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
-        
+        cat(str_glue("### {hdr} {{.tabset}}\n\n"))
+
         # filter data for all pools if necessary
         if (all_shared) {
           # get all unique pool names
@@ -245,7 +243,7 @@ summary_datasets <- pool_data %>%
               unique(fst_data$pop2)
             )
           )
-          
+
           # group data by snp (chrom/pos) and retain
           # snps where all populations are represented in comparisons
           # (either side)
@@ -254,7 +252,7 @@ summary_datasets <- pool_data %>%
             filter(all(all_pools %in% unique(c(unique(pop1),unique(pop2))))) %>%
             ungroup()
         }
-        
+
         # repeatedly filter the dataset for different coverage levels
         # and bind those together into a new dataset
         fst_cov <- cutoffs %>%
@@ -267,7 +265,7 @@ summary_datasets <- pool_data %>%
           }) %>%
           # and bind resulting subsets together into a superset
           list_rbind()
-        
+
         # summarize the data by comparison and cutoff level
         fst_grp <- fst_cov %>%
           group_by(cutoff) %>%
@@ -296,10 +294,10 @@ summary_datasets <- pool_data %>%
             `CI (lower)`=ci_lower,
             `CI (upper)`=ci_upper
           )
-        
+
         shared <- ifelse(all_shared,"all","shared")
         filename <- str_glue("{method$method}_{shared}_summary")
-        
+
         js <- DT::JS(
           "function ( data, type, row, meta ) {",
           "return type === 'display' ?",
@@ -307,8 +305,168 @@ summary_datasets <- pool_data %>%
           "data;",
           "}"
         )
+
+        # show plot table
+        cat(str_glue("#### Plot\n\n"))
+
+        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
+
+        # create interactive plot and add traces
+        fig <- fst_grp %>%
+          plot_ly(
+            y = ~ `Mean F<sub>st</sub>`,
+            x = ~`Coverage cutoff`,
+            name = "Mean F<sub>st</sub>",
+            visible = T,
+            mode = "lines+markers",
+            type = "scatter"
+          ) %>%
+          add_trace(
+            y = ~ `F<sub>st</sub> (SD)`,
+            x = ~`Coverage cutoff`,
+            name = "F<sub>st</sub> (SD)",
+            visible = F,
+            mode = "lines+markers",
+            type = "scatter"
+          ) %>%
+          add_trace(
+            y = ~SNPs,
+            x = ~`Coverage cutoff`,
+            name = "SNPs",
+            mode = "lines+markers",
+            type = "scatter",
+            visible=F
+          ) %>%
+          add_trace(
+            y = ~`SNPs per contig`,
+            x = ~`Coverage cutoff`,
+            name = "Mean SNPs per contig",
+            visible = F,
+            mode = "lines+markers",
+            type = "scatter"
+          ) %>%
+          add_trace(
+            y = ~Contigs,
+            x = ~`Coverage cutoff`,
+            name = "Contigs",
+            visible = F,
+            mode = "lines+markers",
+            type = "scatter"
+          )
+
+        # configure button layout and behavior
+        button_layout <- list(
+          type = "buttons",
+          direction = "right",
+          xanchor = 'center',
+          yanchor = "top",
+          pad = list('r' = 0, 't' = 10, 'b' = 10),
+          x = 0.5,
+          y = 1.27,
+          buttons = list(
+            list(
+              method = "update",
+              args = list(
+                list(
+                  visible = list(
+                    T, F, F, F, F
+                  )
+                ),
+                list(
+                  yaxis = list(title = "Mean F<sub>st</sub>")
+                )
+              ),
+              label = "F<sub>st</sub>"
+            ),
+            list(
+              method = "update",
+              args = list(
+                list(
+                  visible = list(
+                    F, T, F, F, F
+                  )
+                ),
+                list(yaxis = list(title = "F<sub>st</sub> (standard deviation)")
+                )
+              ),
+              label = "F<sub>st</sub> (SD)"
+            ),
+            list(
+              method = "update",
+              args = list(
+                list(
+                  visible = list(
+                    F, F, T, F, F
+                  )
+                ),
+                list(yaxis = list(title = "SNPs")
+                )
+              ),
+              label = "SNPs"
+            ),
+            list(
+              method = "update",
+              args = list(
+                list(
+                  visible = list(
+                    F, F, F, T, F
+                  )
+                ),
+                list(
+                  yaxis = list(title = "Mean SNPs per contig")
+                )
+              ),
+              label = "SNPs per contig"
+            ),
+            list(
+              method = "update",
+              args = list(
+                list(
+                  visible = list(
+                    F, F, F, F, T
+                  )
+                ),
+                list(
+                  yaxis = list(title = "Number of contigs")
+                )
+              ),
+              label = "Contigs"
+            )
+          )
+        )
+
+        # configure annotation properties
+        annotation <- list(
+          list(
+            text = "Total",
+            x = .1,
+            y = 1.22,
+            xref = 'paper',
+            yref = 'paper',
+            showarrow = FALSE
+          )
+        )
+
+        # add layout and annotation to figure
+        fig <- fig %>% layout(
+          yaxis = list(title = "Mean F<sub>st</sub>",fixedrange=TRUE),
+          xaxis = list(title = "Coverage cutoff",fixedrange=TRUE),
+          title = list(text=str_glue("Summary statistics by coverage cutoff - {method$method}"), yref= 'paper', y=1),
+          showlegend = F,
+          updatemenus = list(button_layout),
+          annotations = annotation
+        ) %>%
+          config(displayModeBar = FALSE)
         
+        # display figure
+        print(htmltools::tagList(fig))
+
+        # show data table tab
+        cat(str_glue("#### Table\n\n"))
         
+        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
+
+        # output the datatable
         print(
           htmltools::tagList(
             datatable(
