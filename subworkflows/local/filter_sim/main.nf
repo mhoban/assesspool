@@ -173,21 +173,22 @@ workflow FILTER_SIM {
         )
     }
 
-    // ch_count = ch_filter_summary.map{ meta, vcf, index -> [ meta, vcf ] }
-
+    // count snps in filtered vcf filtes
     COUNT_SNPS( ch_filter_summary )
+    // parse the output of count files as yaml and pack it into a map
     ch_filter_summary = COUNT_SNPS.out.count.map{ meta, count ->
+        // lines look like 'Number of sites: xxx', so we pull the last word of the
+        // key name and make it lowercase and use that as the new key name
         def counts = new groovy.yaml.YamlSlurper().parse(count).collectEntries{ k,v -> [ k.tokenize(' ')[-1].toLowerCase(), v ] }
-        [ meta.id, [filter: meta.filter, count: counts.sites ]  ]
-    }.groupTuple()
-    ch_filter_summary = ch_filter_summary.map { id, filters -> [ project: id, filters: filters ]}
+        [ meta, [filter: meta.filter, count: counts.sites ]  ]
+    }
 
-    // ch_snp_counts = COUNT_SNPS.out.txt
-    // // ch_snp_counts.map{ meta, count -> [ meta, count.text.trim().toInteger() ] }.view()
-    // ch_snp_counts.collectFile(sort: true, newLine: true) { meta, count ->
-    //     [ "${meta.id}_filters.tsv", "${meta.filter}\t${count.text.trim().toInteger()}" ]
-    // }.view()
-
+    // collapse filter counts into tsv files
+    ch_filter_summary = ch_filter_summary.map{ meta, filter ->  meta.subMap('id')  }
+        .unique()
+        .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }
+        .concat( ch_filter_summary )
+        .collectFile(newLine: true, sort: false) { meta, filter -> [ "${meta.id}_filter.tsv", "${filter.filter}\t${filter.count}" ] }
 
     emit:
     filter_summary = ch_filter_summary

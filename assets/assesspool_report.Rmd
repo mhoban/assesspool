@@ -16,11 +16,11 @@ date: "`r Sys.Date()`"
 params:
   debug: false
   project: null
-  filters: null
+  filter: null
   fst_file: null
   fisher: null
   tz: null
-  viz_filter: false
+  viz_filter: true
   min_cov: 10
   max_cov: 70
   cov_step: 10
@@ -96,7 +96,12 @@ cutoffs <- seq(params$min_cov,params$max_cov,params$cov_step)
 
 # load pool data
 # start with fst
-pool_data <- read_tsv(params$fst_file)
+show_fst <- !is.null(params$fst_file)
+if (show_fst) {
+  pool_data <- read_tsv(params$fst_file)
+} else {
+  pool_data <- FALSE
+}
 
 fisher_data <- NULL
 
@@ -109,6 +114,11 @@ if (show_fisher) {
 
 # whether to show VCF filtering
 show_filter <- params$viz_filter & !is.null(params$filter)
+if (show_filter) {
+  filters <- read_tsv(params$filter)
+} else {
+  filters <- NULL
+}
 
 # used for tab selection
 all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
@@ -121,7 +131,7 @@ data_dir <- "artifacts"
 dir_create(data_dir)
 
 # move fst file into artifacts dir
-file_move(params$fst_file,data_dir)
+# file_move(params$fst_file,data_dir)
 ```
 
 <!-- this section only gets processed if params$debug is TRUE -->
@@ -142,24 +152,90 @@ if (params$debug) {
 
 This report summarizes the output of population genetic analyses of a pool-seq RAD library.
 
-# High-level summaries {.tabset}
+```{r, results='asis', eval=show_filter}
+cat("# Filtering\n")
 
-```{r, summaries, results='asis'}
-  summary_datasets <- pool_data %>%
+cat("<h4>SNPs remaining after each filtering step.</h4>\n\n")
+cat("<h5><small>Note: filtering results displayed are independent, not cumulative.</small></h5>\n\n")
+filters <- filters %>%
+  arrange(desc(count)) %>%
+  mutate(
+    filter = replace(filter,which(filter == "before"),"<b>Unfiltered</b>"),
+    filter = forcats::fct_reorder(filter,-count),
+    filter = forcats::fct_relevel(filter,"<b>Unfiltered</b>"),
+    filtered = count[filter == "<b>Unfiltered</b>"] - count,
+    filtered = case_when(
+      filter == "<b>Unfiltered</b>" ~ count,
+      .default = filtered
+    ),
+    changed = filtered > 0
+  ) #%>%
+  # filter(filtered > 0)
+
+changed <- filters %>%
+  filter(changed)
+unchanged <- filters %>%
+  filter(!changed) %>%
+  pull(filter) %>%
+  as.character()
+
+unchanged <- str_glue("<b>{unchanged}</b>")
+unchanged <- str_c(unchanged,collapse=", ")
+cat(str_glue("<h5><small>Filter options with no effect: {unchanged}.</small></h5>\n\n"))
+
+font <- list(
+  family = "Courier New",
+  size = 14#,
+  # color = "grey97"
+)
+label <- list(
+  # bgcolor = "#232F34",
+  # bordercolor = "transparent",
+  font = font
+)
+
+num <- scales::comma#scales::label_number(big.mark = ",")
+t_fmt <- '<b>Before filtering: {num(count[filter == "<b>Unfiltered</b>"])} SNPs<br>After filtering:  {num(count)} SNPs</b>'
+fig <- ggplot(changed) +
+  geom_bar(aes(x=filter,y=count,fill=count,text=str_glue(t_fmt)),stat="identity") +
+  scale_fill_paletteer_c("grDevices::Turku",direction = -1,name="SNPs remaining",labels=scales::comma) +
+  scale_y_continuous(labels=scales::comma) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
+        axis.title.x = element_text(margin = margin(t = -20)),
+        plot.title = element_text(hjust = 0.5),
+        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm")) 
+
+fig <- fig %>%
+  ggplotly(tooltip="text") %>%
+  config(displayModeBar = FALSE) %>%
+  layout(
+    xaxis = list(title = "Filter option", fixedrange = TRUE),
+    yaxis = list(title = "SNPs remaining", fixedrange = TRUE)
+  )  %>%
+  style(hoverlabel = label)
+
+print(htmltools::tagList(fig))
+```
+
+```{r, summaries, results='asis', eval=show_fst}
+cat("# High-level summaries {.tabset}\n\n")
+
+summary_datasets <- pool_data %>%
   group_by(method) %>%
   group_walk(\(fst_data,method) {
     # output tab header
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-
+    
     # walk through all_shared elements
     # (whether or not we're looking only at snps shared across all pools)
     all_pools %>%
       iwalk(\(all_shared,hdr) {
         # output tab header
         cat(str_glue("### {hdr}\n\n"))
-
+        
         cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
-
+        
         # filter data for all pools if necessary
         if (all_shared) {
           # get all unique pool names
@@ -169,7 +245,7 @@ This report summarizes the output of population genetic analyses of a pool-seq R
               unique(fst_data$pop2)
             )
           )
-
+          
           # group data by snp (chrom/pos) and retain
           # snps where all populations are represented in comparisons
           # (either side)
@@ -178,7 +254,7 @@ This report summarizes the output of population genetic analyses of a pool-seq R
             filter(all(all_pools %in% unique(c(unique(pop1),unique(pop2))))) %>%
             ungroup()
         }
-
+        
         # repeatedly filter the dataset for different coverage levels
         # and bind those together into a new dataset
         fst_cov <- cutoffs %>%
@@ -191,7 +267,7 @@ This report summarizes the output of population genetic analyses of a pool-seq R
           }) %>%
           # and bind resulting subsets together into a superset
           list_rbind()
-
+        
         # summarize the data by comparison and cutoff level
         fst_grp <- fst_cov %>%
           group_by(cutoff) %>%
@@ -220,10 +296,10 @@ This report summarizes the output of population genetic analyses of a pool-seq R
             `CI (lower)`=ci_lower,
             `CI (upper)`=ci_upper
           )
-
+        
         shared <- ifelse(all_shared,"all","shared")
         filename <- str_glue("{method$method}_{shared}_summary")
-
+        
         js <- DT::JS(
           "function ( data, type, row, meta ) {",
           "return type === 'display' ?",
@@ -231,8 +307,8 @@ This report summarizes the output of population genetic analyses of a pool-seq R
           "data;",
           "}"
         )
-
-
+        
+        
         print(
           htmltools::tagList(
             datatable(
@@ -268,73 +344,11 @@ This report summarizes the output of population genetic analyses of a pool-seq R
   })
 ```
 
-```{r, results='asis', eval=show_filter}
-cat("# VCF Filtering\n")
 
-cat("<h4>Bar plot showing SNPs remaining after each filtering step.</h4>\n\n")
-cat("<h5><small>Note: filtering results displayed are independent, not cumulative.<br>Filters with no effect are not shown.</small></h5>\n\n")
 
-filters <- params$filters %>%
-  map(\(f) {
-    tibble(name = f$value$filter, snps = f$value$count)
-  }) %>%
-  list_rbind() %>%
-  arrange(desc(snps)) %>%
-  mutate(
-    name = forcats::fct_reorder(name,-snps),
-    name = forcats::fct_relevel(name,"before"),
-    filtered = snps[name == "before"] - snps,
-    filtered = case_when(
-      name == "before" ~ snps,
-      .default = filtered
-    )
-  ) %>%
-  filter(filtered > 0)
+```{r fst-cov-all, results='asis', eval=show_fst}
+cat("# Pairwise F<sub>st</sub> by minimum coverage {.tabset}\n\n")
 
-font <- list(
-  family = "Courier New",
-  size = 14#,
-  # color = "grey97"
-)
-label <- list(
-  # bgcolor = "#232F34",
-  # bordercolor = "transparent",
-  font = font
-)
-
-num <- scales::comma#scales::label_number(big.mark = ",")
-t_fmt <- '<b>Before filtering: {num(snps[name == "before"])} SNPs<br>After filtering:  {num(snps)} SNPs</b>'
-fig <- ggplot(filters) +
-  geom_bar(aes(x=name,y=snps,fill=snps,text=str_glue(t_fmt)),stat="identity") +
-  scale_fill_paletteer_c("grDevices::Turku",direction = -1,name="SNPs remaining",labels=scales::comma) +
-  scale_y_continuous(labels=scales::comma) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
-        axis.title.x = element_text(margin = margin(t = -20)),
-        plot.title = element_text(hjust = 0.5),
-        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
-fig <- fig %>%
-  ggplotly(tooltip="text") %>%
-  config(displayModeBar = FALSE) %>%
-  layout(
-    xaxis = list(title = "Filter", fixedrange = TRUE),
-    yaxis = list(title = "SNPs remaining", fixedrange = TRUE)
-  )  %>%
-  style(hoverlabel = label)
-
-print(htmltools::tagList(fig))
-```
-<!--
-  TODO: Show the filtering visualizations.
-  This'll require a new nextflow process that does stepwise filtering to show what's lost at each step.
-  idea: maybe rather than doing it linearly, allow the user to check boxes to decide which filtering
-  steps to include, so that they can see cumulative effects for any combination rather than just
-  one after the next
--->
-
-# Pairwise F<sub>st</sub> by minimum coverage {.tabset}
-
-```{r fst-cov-all, results='asis'}
 # walk through calculation methods
 pool_data %>%
   group_by(method) %>%
@@ -435,8 +449,10 @@ pool_data %>%
 
 ```
 
-# F<sub>st</sub> method correlations {.tabset}
-```{r, fst-correlation, results='asis'}
+
+```{r, fst-correlation, results='asis', eval=show_fst}
+cat("# F<sub>st</sub> method correlations {.tabset}\n\n")
+
 methods <- unique(pool_data$method)
 # mc <- combn(methods,2)
 splot <- pool_data %>%
@@ -504,9 +520,8 @@ methods %>%
   })
 ```
 
-# Summary heatmaps {.tabset}
-
-```{r, heatmap-setup, results='asis'}
+```{r, heatmap-setup, results='asis', eval=show_fst}
+cat("# Summary heatmaps {.tabset}\n\n")
 
 # a list of parameters we'll use to plot each figure
 # each item consists of: display name, bottom-left heatmap, and (optionally) top-right heatmap

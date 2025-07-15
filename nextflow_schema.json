@@ -256,6 +256,11 @@
                     "type": "integer",
                     "description": "Minimum observations of the alternate haplotype."
                 },
+                "filter_only": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Stop pipeline after generating visualizations of filtering results."
+                },
                 "visualize_filters": {
                     "type": "boolean",
                     "default": true,

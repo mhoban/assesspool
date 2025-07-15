@@ -32,32 +32,51 @@ workflow ASSESSPOOL {
     ch_ref = PREPROCESS.out.ref
     ch_versions = ch_versions.mix(PREPROCESS.out.versions.first())
 
-    // run filtering if desired
-    FILTER( ch_vcf )
-    ch_filtered = FILTER.out.vcf
-    ch_versions = ch_versions.mix(FILTER.out.versions.first())
-
+    // prepare channels
+    ch_fst = Channel.empty()
     ch_filter_sim = Channel.empty()
+    ch_sync = Channel.empty()
+    ch_split_sync = Channel.empty()
+    ch_freq = Channel.empty()
+    ch_fisher = Channel.empty()
+
+    // perform stepwise filtration
+    // for visualization and evaluation
+
 
     if (params.visualize_filters) {
         FILTER_SIM( ch_vcf )
         ch_filter_sim = FILTER_SIM.out.filter_summary
     }
 
+    // run downstream processing unless we're only
+    // visualizing filters
+    if (!params.filter_only) {
+        // run filtering if desired
+        FILTER( ch_vcf )
+        ch_filtered = FILTER.out.vcf
+        ch_versions = ch_versions.mix(FILTER.out.versions.first())
 
-    // calculate pool statistics (fst, fisher, etc.)
-    POOLSTATS(ch_filtered,ch_ref)
-    ch_versions = ch_versions.mix(POOLSTATS.out.versions.first())
+        // calculate pool statistics (fst, fisher, etc.)
+        POOLSTATS(ch_filtered,ch_ref)
+        ch_versions = ch_versions.mix(POOLSTATS.out.versions.first())
+
+        ch_fst = POOLSTATS.out.fst
+        ch_sync = POOLSTATS.out.sync
+        ch_split_sync = POOLSTATS.out.split_sync
+        ch_freq = POOLSTATS.out.frequency
+        ch_fisher = POOLSTATS.out.fisher
+    }
 
     // run post-processing steps
     POSTPROCESS(
         ch_vcf,
-        POOLSTATS.out.fst,
+        ch_fst,
         ch_ref,
-        POOLSTATS.out.sync,
-        POOLSTATS.out.split_sync,
-        POOLSTATS.out.frequency,
-        POOLSTATS.out.fisher,
+        ch_sync,
+        ch_split_sync,
+        ch_freq,
+        ch_fisher,
         ch_filter_sim
     )
 

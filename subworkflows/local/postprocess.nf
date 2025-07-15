@@ -16,26 +16,37 @@ workflow POSTPROCESS {
 
     ch_versions = Channel.empty()
 
-    // TODO: figure out what happens if there's no fisher test
-
     // collapse pairwise fisher tests into single file
     ch_fisher_collapsed = ch_fisher
         .map { it[1] }
         .collectFile( name: 'fisher_all.tsv', keepHeader: true, storeDir: 'output/fishertest' )
 
     // build rmarkdown report
-    def report_file_names = [ 'fst_file', 'fisher' ]
+    // def file_keys = [ 'fst_file', 'fisher', 'filter' ]
     ch_report = ch_vcf.map { [ it[0], file("${projectDir}/assets/assesspool_report.Rmd") ] }
-    ch_input_files = ch_fst
-        .combine( ch_fisher_collapsed )
+    ch_input_files = ch_fst.ifEmpty{ [] }
+        .combine( ch_fisher_collapsed.ifEmpty{ [] } )
+        .combine( ch_filter.ifEmpty{ [] } )
         .collect()
-    ch_params = ch_input_files.map {
-        [report_file_names, it.collect{ it.name }].transpose().collectEntries() +
-        [ 'viz_filter': params.visualize_filters, 'tz': TimeZone.getDefault().getID() ] // +
-        //[ debug: true ]
-    }
-        .mix( ch_filter )
-        .reduce{ a, b -> a + b }
+
+    ch_fst = ch_fst
+        .map{ [ fst_file: it.name ] }
+        .ifEmpty{[:]}
+
+
+    ch_fisher_collapsed = ch_fisher_collapsed
+        .map{ [ fisher: it.name ] }
+        .ifEmpty{[:]}
+
+    ch_filter = ch_filter
+        .map{ [ filter: it.name ] }
+        .ifEmpty{[:]}
+
+    ch_params = ch_fst
+        .mix(ch_fisher_collapsed)
+        .mix(ch_filter)
+        .reduce{a,b -> a+b }
+        .map{ it + [ 'viz_filter': params.visualize_filters, 'tz': TimeZone.getDefault().getID() ] }
 
     CREATE_REPORT( ch_report, ch_params, ch_input_files )
 
