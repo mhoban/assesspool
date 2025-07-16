@@ -457,13 +457,13 @@ summary_datasets <- pool_data %>%
           annotations = annotation
         ) %>%
           config(displayModeBar = FALSE)
-        
+
         # display figure
         print(htmltools::tagList(fig))
 
         # show data table tab
         cat(str_glue("#### Table\n\n"))
-        
+
         cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
 
         # output the datatable
@@ -519,7 +519,7 @@ pool_data %>%
     all_pools %>%
       iwalk(\(all_shared,hdr) {
         # output tab header
-        cat(str_glue("### {hdr}\n\n"))
+        cat(str_glue("### {hdr} {{.tabset}}\n\n"))
 
         # filter data for all pools if necessary
         if (all_shared) {
@@ -554,13 +554,24 @@ pool_data %>%
               mutate(cutoff=cov)
           }) %>%
           # and bind resulting subsets together into a superset
-          list_rbind()
+          list_rbind() %>%
+          # create a text representation of the comparison
+          mutate(pair = str_glue("{pop1} - {pop2}"))
 
         # summarize the data by comparison and cutoff level
+        # precompute box plot stats because the datasets are too big
+        # and pandoc runs out of memory
         fst_grp <- fst_cov %>%
-          group_by(pop1,pop2,cutoff) %>%
+          group_by(pop1,pop2,pair,cutoff) %>%
           summarise(
             fst_sd = sd(fst),                 # std. dev. of fst
+            q1 = as.numeric(quantile(fst)[2]),
+            q3 = as.numeric(quantile(fst)[4]),
+            lwr = boxplot.stats(fst)$stats[1],
+            upr = boxplot.stats(fst)$stats[5],
+            med = median(fst),
+            min = min(fst),
+            max = max(fst),
             fst = mean(fst),                  # mean fst
             fst_se = fst_sd / sqrt(n()),      # std. err. of fst
             cov = mean(avg_min_cov),          # mean coverage
@@ -568,13 +579,14 @@ pool_data %>%
             contigs = n_distinct(chrom),      # contig count
             snps_per_contig = snps / contigs  # mean snps per contig
           ) %>%
-          # create a text representation of the comparison
-          mutate(pair = str_glue("{pop1} - {pop2}")) %>%
           # sort by cutoff and comparison
           arrange(cutoff,pair) %>%
           ungroup()
 
-        # plog the figure
+        # plot scatter plot header
+        cat("#### Scatter plot (means)\n\n")
+
+        # plot the scatterplot
         fig <- fst_grp %>%
           plot_ly(
             x = ~ fst,
@@ -591,16 +603,55 @@ pool_data %>%
           colorbar(title = "SNPs") %>%
           layout(
             margin=list(l = 100, r = 20, b = 10, t = 30),
-            yaxis = list(title="Comparison",tickangle=-35,tickfont=list(size=12)),
+            yaxis = list(title="",tickangle=-35,tickfont=list(size=12)),
             xaxis = list(title="F<sub>st</sub>",tickfont=list(size=12)),
             title = list(text=str_glue("F<sub>st</sub> - {hdr}"), y=0.95)
-            # title = list(text=str_glue("F<sub>st</sub> ({method$method}) - {hdr}"), y=0.95)
           ) %>%
           # customize slider and remove play button
           animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
           animation_button(visible = FALSE)
 
         # output the figure to html
+        print(htmltools::tagList(fig))
+
+        # print box plot header
+        cat("#### Box plot (distributions)\n\n")
+
+        # get outlier points
+        outs <- fst_cov %>%
+          group_by(pop1,pop2,pair,cutoff) %>%
+          summarise(outs = boxplot.stats(fst)$out)  %>%
+          ungroup()
+
+        # generate boxplot figure
+        fig <- fst_grp %>%
+          plot_ly(
+            type = "box",
+            y = ~pair,
+            q1 = ~q1,
+            q3 = ~q3,
+            median = ~med,
+            frame = ~cutoff,
+            lowerfence = ~lwr,
+            upperfence = ~upr
+          ) %>%
+          add_trace(
+            data = outs,
+            inherit = FALSE,
+            y = ~pair,
+            x = ~outs,
+            type="scatter",
+            mode="markers",
+            frame = ~cutoff
+          ) %>%
+          layout(showlegend = FALSE) %>%
+          animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
+          animation_button(visible = FALSE) %>%
+          layout(
+            #margin=list(l = 200, r = 20, b = 80, t = 40),
+            yaxis = list(tickangle=-35,tickfont=list(size=12),title=""),
+            xaxis = list(tickfont=list(size=12),title="F<sub>st</sub>")
+          )
         print(htmltools::tagList(fig))
       })
   })
