@@ -186,7 +186,7 @@ filter_headers <- c(
 )
 filter_notes <- c(
   'Note: filtering results displayed are independent, not cumulative.',
-  'Cumulative filter results'
+  'Cumulative filter results<br>(Note: filtered SNP count may differ from SNP counts associated with F<sub>st</sub> calculations).'
 )
 
 report_data <- list(filters,final_filters)
@@ -267,7 +267,7 @@ c(show_filter,show_final_filter) %>%
 ```{r, summaries, results='asis', eval=show_fst}
 cat("# High-level summaries {.tabset}\n\n")
 
-summary_datasets <- pool_data %>%
+pool_data %>%
   group_by(method) %>%
   group_walk(\(fst_data,method) {
     # output tab header
@@ -350,35 +350,20 @@ summary_datasets <- pool_data %>%
 
         print(h5("Global summary statistics by coverage cutoff"))
 
-        # TODO: use error_y for SD of fst
-        # plot_ly(
-        #   x = ~cov,
-        #   y = ~fst,
-        #   type='scatter',
-        #   mode='markers+lines',
-        #   error_y = ~list(
-        #     type='data',
-        #     array = fst_sd
-        #   )
-        # )
-        
         # create interactive plot and add traces
         fig <- fst_grp %>%
-          plot_ly(
+          plot_ly() %>%
+          add_trace(
             y = ~ `Mean F<sub>st</sub>`,
             x = ~`Coverage cutoff`,
             name = "Mean F<sub>st</sub>",
             visible = T,
             mode = "lines+markers",
-            type = "scatter"
-          ) %>%
-          add_trace(
-            y = ~ `F<sub>st</sub> (SD)`,
-            x = ~`Coverage cutoff`,
-            name = "F<sub>st</sub> (SD)",
-            visible = F,
-            mode = "lines+markers",
-            type = "scatter"
+            type = "scatter",
+            error_y = ~list(
+              type='data',
+              array = `F<sub>st</sub> (SD)`
+            )
           ) %>%
           add_trace(
             y = ~SNPs,
@@ -420,7 +405,7 @@ summary_datasets <- pool_data %>%
               args = list(
                 list(
                   visible = list(
-                    T, F, F, F, F
+                    T, F, F, F
                   )
                 ),
                 list(
@@ -434,20 +419,7 @@ summary_datasets <- pool_data %>%
               args = list(
                 list(
                   visible = list(
-                    F, T, F, F, F
-                  )
-                ),
-                list(yaxis = list(title = "F<sub>st</sub> (standard deviation)")
-                )
-              ),
-              label = "F<sub>st</sub> (SD)"
-            ),
-            list(
-              method = "update",
-              args = list(
-                list(
-                  visible = list(
-                    F, F, T, F, F
+                    F, T, F, F
                   )
                 ),
                 list(yaxis = list(title = "SNPs")
@@ -460,7 +432,7 @@ summary_datasets <- pool_data %>%
               args = list(
                 list(
                   visible = list(
-                    F, F, F, T, F
+                    F, F, T, F
                   )
                 ),
                 list(
@@ -474,7 +446,7 @@ summary_datasets <- pool_data %>%
               args = list(
                 list(
                   visible = list(
-                    F, F, F, F, T
+                    F, F, F, T
                   )
                 ),
                 list(
