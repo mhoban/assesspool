@@ -178,7 +178,7 @@ workflow FILTER_SIM {
     ch_filter_summary = COUNT_SNPS.out.txt.map{ meta, count -> [ meta, [ filter: meta.filter, count: count.text.trim() ] ] }
 
     // turn all the count maps into a tsv file describing filtering results
-    ch_filter_summary = COUNT_SNPS.out.txt
+    ch_filter_summary = ch_filter_summary
         .map{ meta, count -> meta.subMap('id') }
         .unique()
         .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }

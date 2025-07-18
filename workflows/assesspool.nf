@@ -70,7 +70,7 @@ workflow ASSESSPOOL {
 
     // run post-processing steps
     POSTPROCESS(
-        ch_vcf,
+        ch_filtered,
         ch_fst,
         ch_ref,
         ch_sync,
