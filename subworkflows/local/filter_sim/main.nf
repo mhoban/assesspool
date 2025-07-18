@@ -177,13 +177,21 @@ workflow FILTER_SIM {
     // create a map from the text content of each counted file output
     ch_filter_summary = COUNT_SNPS.out.txt.map{ meta, count -> [ meta, [ filter: meta.filter, count: count.text.trim() ] ] }
 
-    // turn all the count maps into a tsv file describing filtering results
+    // turn all the count maps into tsv files describing filtering results
     ch_filter_summary = ch_filter_summary
         .map{ meta, count -> meta.subMap('id') }
         .unique()
         .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }
         .concat( ch_filter_summary )
-        .collectFile(newLine: true, sort: false) { meta, filter -> [ "${meta.id}_filter.tsv", "${filter.filter}\t${filter.count}" ] }
+        .collectFile(newLine: true, sort: false) { meta, filter -> [ "${meta.id}.filter", "${filter.filter}\t${filter.count}" ] }
+        .map{ [it.baseName, it] }
+
+    // join back to meta tag
+    ch_filter_summary = ch_vcf.map{ it[0] }
+        .unique()
+        .map{ [it.id, it]}
+        .join(ch_filter_summary)
+        .map{ id, meta, f -> [ meta, f ] }
 
     emit:
     filter_summary = ch_filter_summary

@@ -27,7 +27,8 @@
                     "type": "string",
                     "format": "directory-path",
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
+                    "fa_icon": "fas fa-folder-open",
+                    "default": "output"
                 },
                 "email": {
                     "type": "string",
@@ -167,6 +168,10 @@
                     "type": "boolean",
                     "description": "Filter VCF file prior to performating analyses."
                 },
+                "filter_only": {
+                    "type": "boolean",
+                    "description": "Generate filtering visualizations and stop."
+                },
                 "keep_indel": {
                     "type": "boolean",
                     "description": "Retain insertion/deletion sites."
@@ -256,11 +261,6 @@
                     "type": "integer",
                     "description": "Minimum observations of the alternate haplotype."
                 },
-                "filter_only": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Stop pipeline after generating visualizations of filtering results."
-                },
                 "visualize_filters": {
                     "type": "boolean",
                     "default": true,
@@ -289,7 +289,7 @@
                 },
                 "match_allele_count": {
                     "type": "boolean",
-                    "description": "Only keep sites where with matching allele counts across all pools."
+                    "description": "Only keep sites where with matching allele counts across all pools (if something goes wrong early on, try this option)."
                 },
                 "missing_zeroes": {
                     "type": "boolean",
@@ -297,11 +297,11 @@
                 },
                 "fisher_test_popoolation": {
                     "type": "boolean",
-                    "description": "Perform Fisher's exact test using `popoolation2`"
+                    "description": "Perform Fisher's exact test using `popoolation2`."
                 },
                 "fisher_test": {
                     "type": "boolean",
-                    "description": "Perform Fisher's exact test`"
+                    "description": "Perform Fisher's exact test using built-in method."
                 },
                 "min_count": {
                     "type": "integer",
@@ -320,7 +320,7 @@
                 },
                 "min_covered_fraction": {
                     "type": "number",
-                    "default": 1.0,
+                    "default": 1,
                     "description": "(popoolation2) The minimum fraction of a window being between min_coverage and max_coverage in ALL samples."
                 },
                 "suppress_noninformative": {
@@ -371,6 +371,29 @@
                     "description": "(grenedalf) Include extra columns in Fst ouput (e.g., position counts, etc.)."
                 }
             }
+        },
+        "report_visualization_options": {
+            "title": "Report/visualization options",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "report_min_coverage": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum coverage cutoff for report visualizations."
+                },
+                "report_max_coverage": {
+                    "type": "integer",
+                    "default": 70,
+                    "description": "Maximum coverage cutoff for report visualizations."
+                },
+                "report_coverage_step": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Report coverage cutoff step."
+                }
+            }
         }
     },
     "allOf": [
@@ -388,6 +411,9 @@
         },
         {
             "$ref": "#/$defs/f_statistic_options"
+        },
+        {
+            "$ref": "#/$defs/report_visualization_options"
         }
     ]
 }

@@ -15,16 +15,14 @@ output:
     toc: yes
 date: "`r Sys.Date()`"
 params:
+  nf: null
   debug: false
   project: null
   filter: null
-  fst_file: null
+  final_filter: null
+  fst: null
   fisher: null
   tz: null
-  viz_filter: true
-  min_cov: 10
-  max_cov: 70
-  cov_step: 10
 ---
 <style>
 /*! Ben's jQuery UI Extensions - v1.1.1 - 2014-03-30
@@ -109,13 +107,13 @@ gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
 }
 
 # get a sequence of coverage cutoffs from input parameters
-cutoffs <- seq(params$min_cov,params$max_cov,params$cov_step)
+cutoffs <- seq(params$nf$report_min_coverage,params$nf$report_max_coverage,params$nf$report_coverage_step)
 
 # load pool data
 # start with fst
-show_fst <- !is.null(params$fst_file)
+show_fst <- !is.null(params$fst)
 if (show_fst) {
-  pool_data <- read_tsv(params$fst_file)
+  pool_data <- read_tsv(params$fst)
 } else {
   pool_data <- FALSE
 }
@@ -130,12 +128,21 @@ if (show_fisher) {
 }
 
 # whether to show VCF filtering
-show_filter <- params$viz_filter & !is.null(params$filter)
+show_filter <- params$nf$visualize_filters & !is.null(params$filter)
 if (show_filter) {
   filters <- read_tsv(params$filter)
 } else {
   filters <- NULL
 }
+
+show_final_filter <- params$nf$visualize_filters & !is.null(params$final_filter)
+if (show_final_filter) { 
+  final_filters <- read_tsv(params$final_filter)
+} else {
+  final_filters <- NULL
+}
+
+any_filter <- show_filter | show_final_filter
 
 # used for tab selection
 all_pools <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
@@ -148,7 +155,7 @@ data_dir <- "artifacts"
 dir_create(data_dir)
 
 # move fst file into artifacts dir
-# file_move(params$fst_file,data_dir)
+# file_move(params$fst,data_dir)
 ```
 
 <!-- this section only gets processed if params$debug is TRUE -->
@@ -169,76 +176,92 @@ if (params$debug) {
 
 This report summarizes the output of population genetic analyses of a pool-seq RAD library.
 
-```{r, results='asis', eval=show_filter}
-cat("# Filtering\n")
-
+```{r, results='asis', eval=any_filter}
 # TODO: show filter option values on plot/table
+cat("# Filtering {.tabset}\n")
 
-print(
-  tagList(
-    h4('SNPs remaining after each filtering step.'),
-    h5(tags$small('Note: filtering results displayed are independent, not cumulative.'))
-  )
+filter_headers <- c(
+  "## Stepwise filtering reuslts",
+  "## Cumulative filtering results"
 )
-filters <- filters %>%
-  arrange(desc(count)) %>%
-  mutate(
-    filter = replace(filter,which(filter == "before"),"<b>Unfiltered</b>"),
-    filter = forcats::fct_reorder(filter,-count),
-    filter = forcats::fct_relevel(filter,"<b>Unfiltered</b>"),
-    filtered = count[filter == "<b>Unfiltered</b>"] - count,
-    filtered = case_when(
-      filter == "<b>Unfiltered</b>" ~ count,
-      .default = filtered
-    ),
-    changed = filtered > 0
-  ) #%>%
-  # filter(filtered > 0)
-
-changed <- filters %>%
-  filter(changed)
-unchanged <- filters %>%
-  filter(!changed) %>%
-  pull(filter) %>%
-  as.character()
-
-unchanged <- str_glue("<b>{unchanged}</b>")
-unchanged <- str_c(unchanged,collapse=", ")
-print(h5(tags$small("Filter options with no effect: {unchanged}.")))
-
-font <- list(
-  family = "Courier New",
-  size = 14#,
-  # color = "grey97"
-)
-label <- list(
-  # bgcolor = "#232F34",
-  # bordercolor = "transparent",
-  font = font
+filter_notes <- c(
+  'Note: filtering results displayed are independent, not cumulative.',
+  'Cumulative filter results'
 )
 
-num <- scales::comma#scales::label_number(big.mark = ",")
-t_fmt <- '<b>Before filtering: {num(count[filter == "<b>Unfiltered</b>"])} SNPs<br>After filtering:  {num(count)} SNPs</b>'
-fig <- ggplot(changed) +
-  geom_bar(aes(x=filter,y=count,fill=count,text=str_glue(t_fmt)),stat="identity") +
-  scale_fill_paletteer_c("grDevices::Turku",direction = -1,name="SNPs remaining",labels=scales::comma) +
-  scale_y_continuous(labels=scales::comma) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
-        axis.title.x = element_text(margin = margin(t = -20)),
-        plot.title = element_text(hjust = 0.5),
-        plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
+report_data <- list(filters,final_filters)
 
-fig <- fig %>%
-  ggplotly(tooltip="text") %>%
-  config(displayModeBar = FALSE) %>%
-  layout(
-    xaxis = list(title = "Filter option", fixedrange = TRUE),
-    yaxis = list(title = "SNPs remaining", fixedrange = TRUE)
-  )  %>%
-  style(hoverlabel = label)
-
-print(tagList(fig))
+c(show_filter,show_final_filter) %>%
+  iwalk(\(show_report,i) {
+    if (show_report) {
+      # show tab header
+      cat(filter_headers[i],"\n\n")
+      
+      # get relevant filtering data
+      filter_data <- report_data[[i]]
+      
+      print(
+        tagList(
+          h5('SNPs remaining after each filtering step.'),
+          h5(tags$small(HTML(filter_notes[i])))
+        )
+      )
+      filter_data <- filter_data %>%
+        arrange(desc(count)) %>%
+        mutate(
+          filter = replace(filter,which(filter == "before"),"<b>Unfiltered</b>"),
+          filter = replace(filter,which(filter == "cumulative"),"All filters"),
+          filter = forcats::fct_reorder(filter,-count),
+          filter = forcats::fct_relevel(filter,"<b>Unfiltered</b>"),
+          filtered = count[filter == "<b>Unfiltered</b>"] - count,
+          filtered = case_when(
+            filter == "<b>Unfiltered</b>" ~ count,
+            .default = filtered
+          ),
+          changed = filtered > 0
+        ) #%>%
+      # filter(filtered > 0)
+      changed <- filter_data %>%
+        filter(changed)
+      unchanged <- filter_data %>%
+        filter(!changed) %>%
+        pull(filter) %>%
+        as.character()
+      unchanged <- str_glue("<b>{unchanged}</b>")
+      unchanged <- str_c(unchanged,collapse=", ")
+      if (unchanged != "") {
+        print(h5(tags$small(HTML(str_glue(
+          "Filter options with no effect: {unchanged}."
+        )))))
+      }
+      
+      font <- list(
+        family = "Courier New",
+        size = 14
+      )
+      label <- list( font = font )
+      num <- scales::comma
+      t_fmt <- '<b>Before filtering: {num(count[filter == "<b>Unfiltered</b>"])} SNPs<br>After filtering:  {num(count)} SNPs</b>'
+      fig <- ggplot(changed) +
+        geom_bar(aes(x=filter,y=count,fill=count,text=str_glue(t_fmt)),stat="identity") +
+        scale_fill_paletteer_c("grDevices::Turku",direction = -1,name="SNPs remaining",labels=scales::comma) +
+        scale_y_continuous(labels=scales::comma) +
+        theme_bw() +
+        theme(axis.text.x = element_text(angle = -30, hjust=-0.1),
+              axis.title.x = element_text(margin = margin(t = -20)),
+              plot.title = element_text(hjust = 0.5),
+              plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
+      fig <- fig %>%
+        ggplotly(tooltip="text") %>%
+        config(displayModeBar = FALSE) %>%
+        layout(
+          xaxis = list(title = "Filter option", fixedrange = TRUE),
+          yaxis = list(title = "SNPs remaining", fixedrange = TRUE)
+        )  %>%
+        style(hoverlabel = label)
+      print(tagList(fig))
+    } 
+  })
 ```
 
 ```{r, summaries, results='asis', eval=show_fst}
@@ -288,8 +311,8 @@ summary_datasets <- pool_data %>%
             fst = mean(fst),                  # mean fst
             fst_se = fst_sd / sqrt(n()),      # std. err. of fst
             cov = mean(avg_min_cov),          # mean coverage
-            snps = n(),                       # snp count
-            contigs = n_distinct(chrom),      # contig count
+            snps = n_distinct(chrom,pos,na.rm = TRUE),                       # snp count
+            contigs = n_distinct(chrom,na.rm=TRUE),      # contig count
             snps_per_contig = snps / contigs, # mean snps per contig
             ci_lower= fst - qt(0.975, n() -1) * fst_se,
             ci_upper= fst + qt(0.975, n() -1) * fst_se
@@ -604,8 +627,8 @@ pool_data %>%
             fst = mean(fst),                  # mean fst
             fst_se = fst_sd / sqrt(n()),      # std. err. of fst
             cov = mean(avg_min_cov),          # mean coverage
-            snps = n(),                       # snp count
-            contigs = n_distinct(chrom),      # contig count
+            snps = n_distinct(chrom,pos,na.rm=TRUE),                       # snp count
+            contigs = n_distinct(chrom,na.rm=TRUE),      # contig count
             snps_per_contig = snps / contigs  # mean snps per contig
           ) %>%
           # sort by cutoff and comparison
@@ -791,7 +814,7 @@ pool_data %>%
             tags$label(
               id=str_glue("heatmap-cutoff-label-{method$method}-{trace_vars$name}"),
               `for`=str_glue("heatmap-cutoff-sel-{method$method}-{trace_vars$name}"),
-              str_glue('Minimum coverage: {params$min_cov}')
+              str_glue('Minimum coverage: {params$nf$report_min_coverage}')
             ),
             div(
               id=str_glue("heatmap-cutoff-sel-{method$method}-{trace_vars$name}")
@@ -807,10 +830,10 @@ pool_data %>%
         '
            $(function() {{
              $("#heatmap-cutoff-sel-{method$method}-{trace_vars$name}").labeledslider({{
-               min: {params$min_cov},
-               max: {params$max_cov},
-               step: {params$cov_step},
-               tickInterval: {params$cov_step},
+               min: {params$nf$report_min_coverage},
+               max: {params$nf$report_max_coverage},
+               step: {params$nf$report_coverage_step},
+               tickInterval: {params$nf$report_coverage_step},
                change: function (e, ui) {{
                  var fig = $("#heatmap-fig-{method$method}-{trace_vars$name}")[0];
                  var figdata = $(`#heatmap-json-{method$method}-{trace_vars$name}-${{ui.value}}`).text();
@@ -849,7 +872,7 @@ pool_data %>%
                 cov = mean(avg_min_cov,na.rm=TRUE),
                 cov_sd = sd(avg_min_cov,na.rm = TRUE),
                 cov_se = cov_sd / sqrt(n()),
-                snps = n(),
+                snps = n_distinct(chrom,pos,na.rm=TRUE),
                 contigs = n_distinct(chrom,na.rm = TRUE),
                 snps_per_contig = snps / contigs,
                 fst = mean(fst,na.rm=TRUE)
@@ -1083,7 +1106,7 @@ fisher_data %>%
         tags$label(
           id=str_glue("fisher-cutoff-label-{method$method}"),
           `for`=str_glue("fisher-cutoff-sel-{method$method}"),
-          str_glue('Minimum coverage: {params$min_cov}')
+          str_glue('Minimum coverage: {params$nf$report_min_coverage}')
         ),
         div(
           id=str_glue("fisher-cutoff-sel-{method$method}")
@@ -1096,10 +1119,10 @@ fisher_data %>%
     '
       $(function() {{
         $("#fisher-cutoff-sel-{method$method}").labeledslider({{
-          min: {params$min_cov},
-          max: {params$max_cov},
-          step: {params$cov_step},
-          tickInterval: {params$cov_step},
+          min: {params$nf$report_min_coverage},
+          max: {params$nf$report_max_coverage},
+          step: {params$nf$report_coverage_step},
+          tickInterval: {params$nf$report_coverage_step},
           change: function (e, ui) {{
             $(".fisher-plotz-{method$method}").hide();
             $(`#fisher-plot-{method$method}-${{ui.value}}`).show(); 

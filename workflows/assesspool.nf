@@ -39,6 +39,7 @@ workflow ASSESSPOOL {
     ch_split_sync = Channel.empty()
     ch_freq = Channel.empty()
     ch_fisher = Channel.empty()
+    ch_filtered = Channel.empty()
 
     // perform stepwise filtration
     // for visualization and evaluation
@@ -71,6 +72,7 @@ workflow ASSESSPOOL {
     // run post-processing steps
     POSTPROCESS(
         ch_filtered,
+        ch_vcf,
         ch_fst,
         ch_ref,
         ch_sync,

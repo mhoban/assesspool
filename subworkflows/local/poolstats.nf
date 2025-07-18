@@ -127,10 +127,18 @@ workflow POOLSTATS {
         .map { id, meta, fst, method, freq -> [ meta, freq, fst, method ] }
         .set { ch_join }
 
-    // join pairwise fst results to snp frequencies and concatenate into one big file
+    // join pairwise fst results to snp frequencies and concatenate into one big file per input
     ch_join = JOINFREQ( ch_join ).fst_freq
-        .map{ meta, joined -> joined }
-        .collectFile( name: 'fst_freq_all.tsv', keepHeader: true, storeDir: 'output/joinfreq' )
+        .collectFile( keepHeader: true, sort: false, storeDir: 'output/fst' ){ meta, joined -> [ "${meta.id}.fst", joined ] }
+        .map{ [it.baseName, it ] }
+    // rejoin meta tags
+    ch_join = ch_vcf
+        .map{ it[0] }
+        .unique()
+        .map{ [ it.id, it ] }
+        .join( ch_join )
+        .map{ id, meta, f -> [ meta, f ] }
+
 
     ch_versions = ch_versions.mix(JOINFREQ.out.versions.first())
 
