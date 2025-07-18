@@ -1066,7 +1066,6 @@ methods %>%
 ```
 
 ```{r, fisher, results='asis', eval=show_fisher}
-# TODO: do this with a slider
 cat("# Fisher test plots {.tabset}\n\n")
 print(h5(tags$small(
   "Fisher test results are presented as static plots due to the potentially large size of the datasets."
