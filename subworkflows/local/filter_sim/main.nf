@@ -15,8 +15,7 @@ include { BCFTOOLS_FILTER as MIN_DEPTH               } from '../../../modules/nf
 include { BCFTOOLS_FILTER as MIN_POOLS               } from '../../../modules/nf-core/bcftools/filter/main'
 include { BCFTOOLS_FILTER as READ_BALANCE            } from '../../../modules/nf-core/bcftools/filter/main'
 include { VCFTOOLS as THIN                           } from '../../../modules/nf-core/vcftools/main'
-include { BCFTOOLS_PLUGINCOUNTS as COUNT_SNPS        } from '../../../modules/local/bcftools/plugincounts/main'
-// include { RIPGREP as COUNT_SNPS                      } from '../../../modules/nf-core/ripgrep/main'
+include { RIPGREP as COUNT_SNPS                      } from '../../../modules/nf-core/ripgrep/main'
 
 include { BCFTOOLS_VIEW as BCFTOOLS_COMPRESS_INDEX_FILTERED } from '../../../modules/nf-core/bcftools/view/main'
 
@@ -174,17 +173,13 @@ workflow FILTER_SIM {
     }
 
     // count snps in filtered vcf filtes
-    COUNT_SNPS( ch_filter_summary )
-    // parse the output of count files as yaml and pack it into a map
-    ch_filter_summary = COUNT_SNPS.out.count.map{ meta, count ->
-        // lines look like 'Number of sites: xxx', so we pull the last word of the
-        // key name and make it lowercase and use that as the new key name
-        def counts = new groovy.yaml.YamlSlurper().parse(count).collectEntries{ k,v -> [ k.tokenize(' ')[-1].toLowerCase(), v ] }
-        [ meta, [filter: meta.filter, count: counts.sites ]  ]
-    }
+    COUNT_SNPS( ch_filter_summary.map{ meta, vcf, index -> [ meta, vcf ] }, '^#', false )
+    // create a map from the text content of each counted file output
+    ch_filter_summary = COUNT_SNPS.out.txt.map{ meta, count -> [ meta, [ filter: meta.filter, count: count.text.trim() ] ] }
 
-    // collapse filter counts into tsv files
-    ch_filter_summary = ch_filter_summary.map{ meta, filter ->  meta.subMap('id')  }
+    // turn all the count maps into a tsv file describing filtering results
+    ch_filter_summary = COUNT_SNPS.out.txt
+        .map{ meta, count -> meta.subMap('id') }
         .unique()
         .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }
         .concat( ch_filter_summary )
