@@ -2,6 +2,7 @@
 title: assessPool analysis
 output:
   html_document:
+    css: "https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css"
     toc: true               # table of contents
     toc_float: true         # float the table of contents to the left of the main document content
     toc_depth: 4            # header levels 1,2,3
@@ -25,6 +26,20 @@ params:
   max_cov: 70
   cov_step: 10
 ---
+<style>
+/*! Ben's jQuery UI Extensions - v1.1.1 - 2014-03-30
+* https://github.com/bseth99/jquery-ui-extensions
+* Copyright 2014 Ben Olson; Licensed MIT */
+
+.ui-slider-wrapper{position:relative}.ui-slider-wrapper .ui-slider-horizontal{width:100%}.ui-slider-labels{position:absolute;border:1px solid transparent}.ui-slider-label-ticks{border:1px solid transparent;position:absolute;white-space:nowrap}.ui-slider-label-ticks span{font-size:.9em;min-width:1.2em}.ui-slider-wrapper.horizontal{height:4.5em}.horizontal .ui-slider-labels{left:0;right:0;top:.7em}.horizontal .ui-slider-label-ticks{width:1.2em;height:.8em;text-align:center;border-left:1px solid #999}.horizontal .ui-slider-label-ticks span{position:relative;display:inline-block;margin-left:-1.2em;top:.8em}.ui-slider-wrapper.vertical{width:4.5em}.vertical .ui-slider-labels{top:1px;bottom:0;left:.7em}.vertical .ui-slider-label-ticks{height:1.2em;width:.8em;border-bottom:1px solid #999}.vertical .ui-slider-label-ticks span{position:relative;display:inline-block;margin-left:1em;top:.6em}
+
+.heatmap-coverage-slider {
+  width: 40%;
+}
+</style>
+<script>
+(function(t){t.widget("ui.labeledslider",t.ui.slider,{version:"1.1.1",options:{tickInterval:0,tweenLabels:!0,tickLabels:null,tickArray:[]},uiSlider:null,tickInterval:0,tweenLabels:!0,_create:function(){this._detectOrientation(),this.uiSlider=this.element.wrap('<div class="ui-slider-wrapper ui-widget"></div>').before('<div class="ui-slider-labels">').parent().addClass(this.orientation).css("font-size",this.element.css("font-size")),this._super(),this.element.removeClass("ui-widget"),this._alignWithStep(),"horizontal"==this.orientation?this.uiSlider.width(this.element.css("width")):this.uiSlider.height(this.element.css("height")),this._drawLabels()},_drawLabels:function(){var i,e=this.options.tickLabels||{},n=this.uiSlider.children(".ui-slider-labels"),s="horizontal"==this.orientation?"left":"bottom",o=this.options.min,a=this.options.max,r=this.tickInterval,u=a-o,l=this.options.tickArray,h=l.length>0,p=0;for(n.html("");u>=p;p++)(!h&&0==p%r||h&&l.indexOf(p+o)>-1)&&(i=e[p+o]?e[p+o]:this.options.tweenLabels?p+o:"",t("<div>").addClass("ui-slider-label-ticks").css(s,Math.round(1e4*(p/u))/100+"%").html("<span>"+i+"</span>").appendTo(n))},_setOption:function(t,i){switch(this._super(t,i),t){case"tickInterval":case"tickLabels":case"tickArray":case"min":case"max":case"step":this._alignWithStep(),this._drawLabels();break;case"orientation":this.element.removeClass("horizontal vertical").addClass(this.orientation),this._drawLabels()}},_alignWithStep:function(){this.tickInterval=this.options.tickInterval<this.options.step?this.options.step:this.options.tickInterval},_destroy:function(){this._super(),this.uiSlider.replaceWith(this.element)},widget:function(){return this.uiSlider}})})(jQuery);
+</script>
 ```{r setup, echo=FALSE, include=FALSE}
 # when  run in a container, there are
 # weird issues with the timezone and lubridate
@@ -34,6 +49,7 @@ if (!is.null(params$tz)) {
 }
 
 # load libraries
+library(tidyr)
 library(knitr)
 library(yaml)
 library(plotly)
@@ -44,6 +60,7 @@ library(stringr)
 library(purrr)
 library(paletteer)
 library(fs)
+library(htmltools)
 
 if (params$debug) {
   options(show.error.locations = TRUE)
@@ -155,8 +172,12 @@ This report summarizes the output of population genetic analyses of a pool-seq R
 ```{r, results='asis', eval=show_filter}
 cat("# Filtering\n")
 
-cat("<h4>SNPs remaining after each filtering step.</h4>\n\n")
-cat("<h5><small>Note: filtering results displayed are independent, not cumulative.</small></h5>\n\n")
+print(
+  tagList(
+    tags$h4('SNPs remaining after each filtering step.'),
+    tags$h5(tags$small('Note: filtering results displayed are independent, not cumulative.'))
+  )
+)
 filters <- filters %>%
   arrange(desc(count)) %>%
   mutate(
@@ -181,7 +202,7 @@ unchanged <- filters %>%
 
 unchanged <- str_glue("<b>{unchanged}</b>")
 unchanged <- str_c(unchanged,collapse=", ")
-cat(str_glue("<h5><small>Filter options with no effect: {unchanged}.</small></h5>\n\n"))
+print(tags$h5(tags$small("Filter options with no effect: {unchanged}.")))
 
 font <- list(
   family = "Courier New",
@@ -215,7 +236,7 @@ fig <- fig %>%
   )  %>%
   style(hoverlabel = label)
 
-print(htmltools::tagList(fig))
+print(tagList(fig))
 ```
 
 ```{r, summaries, results='asis', eval=show_fst}
@@ -309,8 +330,20 @@ summary_datasets <- pool_data %>%
         # show plot table
         cat(str_glue("#### Plot\n\n"))
 
-        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
+        print(tags$h5("Global summary statistics by coverage cutoff"))
 
+        # TODO: use error_y for SD of fst
+        # plot_ly(
+        #   x = ~cov,
+        #   y = ~fst,
+        #   type='scatter',
+        #   mode='markers+lines',
+        #   error_y = ~list(
+        #     type='data',
+        #     array = fst_sd
+        #   )
+        # )
+        
         # create interactive plot and add traces
         fig <- fst_grp %>%
           plot_ly(
@@ -459,16 +492,16 @@ summary_datasets <- pool_data %>%
           config(displayModeBar = FALSE)
 
         # display figure
-        print(htmltools::tagList(fig))
+        print(tagList(fig))
 
         # show data table tab
         cat(str_glue("#### Table\n\n"))
 
-        cat("<h5>Global summary statistics by coverage cutoff</h5>\n\n")
+        print(tags$h5("Global summary statistics by coverage cutoff"))
 
         # output the datatable
         print(
-          htmltools::tagList(
+          tagList(
             datatable(
               fst_grp,
               escape = FALSE,
@@ -540,11 +573,10 @@ pool_data %>%
             ungroup()
         }
 
+
+
         # repeatedly filter the dataset for different coverage levels
         # and bind those together into a new dataset
-
-
-        # now filter the main dataset for each cutoff level
         fst_cov <- cutoffs %>%
           map(\(cov) {
             fst_data %>%
@@ -611,8 +643,26 @@ pool_data %>%
           animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
           animation_button(visible = FALSE)
 
+        # assign div id to figure
+        shr <- ifelse(all_shared,"shared","all")
+        fig_id <- str_glue("fst-fig-{method$method}-{shr}")
+        fig$elementId <- fig_id
+
         # output the figure to html
-        print(htmltools::tagList(fig))
+        print(tagList(fig))
+
+        # TODO: slider change event
+        # fig_script <- tags$script(
+        #   HTML(str_glue('
+        #   $(function() {{
+        #     $("#{fig_id}").on("plotly_sliderchange",function(e,data) {{
+        #       var cutoff = parseInt(data.slider.steps[data.slider.active].label.replaceAll(/[^0-9]+/g,""));
+        #       console.log("Cutoff: " + cutoff);
+        #     }})
+        #   }});
+        #   '))
+        # )
+        # print(fig_script)
 
         # print box plot header
         cat("#### Box plot (distributions)\n\n")
@@ -631,7 +681,7 @@ pool_data %>%
             q1 = ~q1,
             q3 = ~q3,
             median = ~med,
-            frame = ~cutoff,
+            frame = ~str_glue("≥{cutoff}"),
             lowerfence = ~lwr,
             upperfence = ~upr
           ) %>%
@@ -642,7 +692,7 @@ pool_data %>%
             x = ~outs,
             type="scatter",
             mode="markers",
-            frame = ~cutoff
+            frame = ~str_glue("≥{cutoff}")
           ) %>%
           layout(showlegend = FALSE) %>%
           animation_slider(currentvalue = list(prefix = "Minimum coverage: ", font = list(color = "black"))) %>%
@@ -652,81 +702,10 @@ pool_data %>%
             yaxis = list(tickangle=-35,tickfont=list(size=12),title=""),
             xaxis = list(tickfont=list(size=12),title="F<sub>st</sub>")
           )
-        print(htmltools::tagList(fig))
+        print(tagList(fig))
       })
   })
 
-```
-
-
-```{r, fst-correlation, results='asis', eval=show_fst}
-cat("# F<sub>st</sub> method correlations {.tabset}\n\n")
-
-methods <- unique(pool_data$method)
-# mc <- combn(methods,2)
-splot <- pool_data %>%
-  split(.$method)
-methods %>%
-  combn(2) %>%
-  array_branch(2) %>%
-  walk(\(pair) {
-    cat(str_glue("## F<sub>st</sub> correlation: {pair[1]} vs {pair[2]}\n\n"))
-    cat("<h5><small>Note: Due to potentially large datasets, these plots show only a subsample of 1,000 F<sub>st</sub> values.</small></h5>\n\n")
-
-    corr <- splot[[pair[1]]] %>%
-      inner_join(splot[[pair[2]]],by=c("chrom","pos","pop1","pop2"))
-
-    lmm <- lm(fst.y ~ fst.x, data=corr)
-    corr <- corr %>%
-      mutate(
-        predicted = lmm %>%
-          predict(corr %>% select(fst.x))
-      ) %>%
-      sample_n(1000)
-
-    xtitle <- unique(corr$method.x)
-    ytitle <- unique(corr$method.y)
-
-    fig <- corr %>%
-      plot_ly() %>%
-      add_trace(
-        x = ~fst.x,
-        y = ~fst.x,
-        type = 'scatter',
-        mode = 'lines',
-        # mode = 'lines+markers'#,
-        line = list(color = '#232323', width = 0.7)
-      ) %>%
-      add_trace(
-        x = ~fst.x,
-        y = ~fst.y,
-        type = 'scatter',
-        mode = 'markers',
-        marker = list(color = 'black')
-      ) %>%
-      add_trace(
-        x = ~fst.x,
-        y = ~predicted,
-        type = 'scatter',
-        mode = 'lines',
-        # mode = 'lines+markers'#,
-        line = list(color = 'lightskyblue', dash="dash", width = 0.7)
-      ) %>%
-      layout(
-        xaxis = list(title = str_glue("F<sub>st</sub> ({xtitle})")),
-        yaxis = list(title = str_glue("F<sub>st</sub> ({ytitle})"))
-      ) %>%
-      hide_guides()
-
-    print(htmltools::tagList(fig))
-    # fig <- ggplot(corr,aes(x=fst.x,y=fst.y)) +
-    #   geom_abline(slope=1,intercept=0,color="lightskyblue",linewidth=0.5,linetype="dashed") +
-    #   geom_point() +
-    #   geom_smooth(method="lm",se=FALSE,color="grey19",linewidth=0.5) +
-    #   xlab(str_glue("F<sub>st</sub> ({xtitle})")) +
-    #   ylab(str_glue("F<sub>st</sub> ({ytitle})"))
-    # print(fig)
-  })
 ```
 
 ```{r, heatmap-setup, results='asis', eval=show_fst}
@@ -734,35 +713,34 @@ cat("# Summary heatmaps {.tabset}\n\n")
 
 # a list of parameters we'll use to plot each figure
 # each item consists of: display name, bottom-left heatmap, and (optionally) top-right heatmap
-# individual heatmap options are: x value, y value, variable name, and color palette (from paletteer_c)
+# individual heatmap options are: x value, y value, variable name, color palette (from paletteer_c),
+# number format (passed to sprintf), and missing color
 var_pairs <- list(
   list(
+    name="fst",
     title="F<sub>st</sub> (±SD)",
     description="Lower triangle: mean pairwise F<sub>st</sub><br>Upper triangle: standard deviation of F<sub>st</sub>",
-    pairs=list(c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f"))
+    pairs=list(c("pop1","pop2","fst","viridis::mako",".3f","darkgrey"), c("pop2","pop1","fst_sd","viridis::inferno",".2f","darkgrey"))
   ),
   list(
+    name="snps",
     title="SNPs / SNPs per contig",
     description="Lower triangle: pairwise shared SNPs contributing to F<sub>st</sub> calculation<br>Upper triangle: average shared SNPs per contig",
-    pairs=list(c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f"))
+    pairs=list(c("pop1","pop2","snps","scico::tokyo","d","darkgrey"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f","darkgrey"))
   ),
   list(
+    name="cov",
     title="Mean coverage (±SD)",
     description="Lower triangle: mean pairwise coverage<br>Upper triangle: pairwise coverage standard deviation",
-    pairs=list(c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f"))
+    pairs=list(c("pop1","pop2","cov","viridis::cividis",".2f","darkgrey"), c("pop2","pop1","cov_sd","viridis::plasma",".2f","darkgrey"))
   ),
   list(
+    name="contigs",
     title="Contigs",
     description="Pairwise shared contigs",
-    pairs=list(c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
+    pairs=list(c("pop1","pop2","contigs","scico::batlowW","d","darkgrey"), rep(NA,4))
   )
 )
-# var_pairs <- list(
-#   list("F<sub>st</sub> (±SD)",c("pop1","pop2","fst","viridis::mako",".3f"), c("pop2","pop1","fst_sd","viridis::inferno",".2f")),
-#   list("SNPs / SNPs per contig",c("pop1","pop2","snps","scico::tokyo",",d"), c("pop2","pop1","snps_per_contig","viridis::rocket",".2f")),
-#   list("Mean coverage (±SD)",c("pop1","pop2","cov","viridis::cividis",".2f"), c("pop2","pop1","cov_sd","viridis::plasma",".2f")),
-#   list("Contigs",c("pop1","pop2","contigs","scico::batlowW",",d"), rep(NA,4))
-# )
 
 # map variable names to display names
 value_map <- c(
@@ -774,168 +752,335 @@ value_map <- c(
   cov_sd = "Coverage (SD)",
   cov_se = "Coverage (SEM)",
   snps_per_contig = "SNPs per contig",
-  contigs = "Contigs"#,
-  # fisher = "p-value (Fisher's exact test)"k,
-  # log_fisher = "-log<sub>10</sub>(p-value) (Fisher's exact test)"
+  contigs = "Contigs"
 )
-
-# shortcut to create a formula from a string
-# ex: form("hello") creates ~hello as a formula
-# this is so we can pass things to x and y in variables
-form <- \(x) as.formula(str_glue("~{x}"))
 
 # generate a colorscale that plotly will understand from a named palette in paletteer
 # increase n to increase the "smoothness" of the color scale
-cscale <- function(pal,n=10) {
-  paletteer_c(pal,n+1) %>%
+# na is the "missing" color, min is the dummy range used for the missing color
+cscale <- function(pal,n=10,na="darkgrey",min=0.00001) {
+  s <- paletteer_c(pal,n+1) %>%
     imap(\(col,i) {
       list((i-1)/n,col)
     })
+  if (!is.na(na)) {
+    s[[1]][[1]] <- min
+    c(list(list(0,na), list(min,na)),s)
+  }
 }
 
-# background colors we might not use
-bg_cols <- c('#0b1211', "#0b1211")
+# replace "NA" (not NA) in a string vector
+fix_na <- function(x,na="n/a") replace(x,which(x == "NA"),na)
 
 # summarize dataset (as above) by method and pool comparison
 pool_data %>%
-  group_by(method,pop1,pop2) %>%
-  summarise(
-    fst_sd = sd(fst),
-    fst_se = fst_sd / sqrt(n()),
-    cov = mean(avg_min_cov),
-    cov_sd = sd(avg_min_cov),
-    cov_se = cov_sd / sqrt(n()),
-    snps = n(),
-    contigs = n_distinct(chrom),
-    snps_per_contig = snps / contigs,
-    t_p = t.test(fst,mu=0,alternative = "greater")$p.value,
-    fst = mean(fst)#,
-    # fisher_sd = sd(fisher)
-    # I don't think these belong here
-    # log_fisher_sd = sd(log_fisher),
-    # fisher_gm = gm_mean(fisher),
-    # fisher = mean(fisher),
-    # log_fisher = mean(log_fisher)
-  ) %>%
-  ungroup() %>%
-  # walk through calculation methods
   group_by(method) %>%
   group_walk(\(fst_data,method) {
     # output tab header
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
 
-    # this is a little hack to get plotly to consider all heatmap cells
-    # to be "active". basically, we add in NA entries for the comparisons that
-    # don't exist. the upshot is that hovertext works for every cell
-
-    # first, get all pool names
-    all_pops <- sort(union(unique(fst_data$pop1),unique(fst_data$pop2)))
-
-    # convert pool names to factors with all possible levels
-    # make sure pop2 has levels in reverse so the figure looks right
-    # (i.e., a nice triangle)
-    hmd <- fst_data %>%
-      arrange(pop1,desc(pop2)) %>%
-      mutate(
-        pop1 = factor(pop1,levels=all_pops),
-        pop2 = factor(pop2,levels=rev(all_pops))
-      )
-
-    # get the factor level that would be the top row of the plot
-    top_level <- last(levels(hmd$pop2))
-
-    # now we get everything for pop1 (x) == top_level
-    top_row <- hmd %>%
-      filter(pop1 == top_level) %>%
-      # switch pop1 and pop2
-      mutate(temp=pop1,pop1=pop2,pop2=temp) %>%
-      # drop the temp column
-      select(-temp) %>%
-      # set all numeric values to NA
-      mutate(across(where(is.numeric),~NA))
-
-    # bind dummy values to plot data
-    # it seems to matter that we bind these
-    # to the end, rather than the other way around
-    hmd <- hmd %>%
-      bind_rows(top_row)
-
     # now we walk through our different display pairs
     var_pairs %>%
       walk(\(trace_vars) {
-
-        # pull out the header text and description
-        hdr <- trace_vars$title
-        desc <- trace_vars$description
         # and show the tab header
-        cat(str_glue("### {hdr}\n\n"))
-        cat(str_glue("<h5>{desc}</h5>\n\n"))
+        cat(str_glue("### {trace_vars$title}\n\n"))
+        print(tags$h5(HTML(trace_vars$description)))
 
-        # create an empty plotly figure
-        fig <- hmd %>%
-          plot_ly(hoverongaps=FALSE)
+        # create cutoff slider
+        cutoff_sel <- tags$div(
+          class="heatmap-coverage-slider",
+          tagList(
+            tags$label(
+              id=str_glue("cutoff-label-{method$method}-{trace_vars$name}"),
+              `for`=str_glue("cutoff-sel-{method$method}-{trace_vars$name}"),
+              str_glue('Minimum coverage: {params$min_cov}')
+            ),
+            tags$div(
+              id=str_glue("cutoff-sel-{method$method}-{trace_vars$name}")
+            )
+          )
+        )
+        print(cutoff_sel)
 
-        # now we exclude the first element of trace_vars
-        # and reduce the rest to a single plotly figure
-        # that c(1,2) is just to keep track of if we're on
-        # the first or second half
-        fig <- trace_vars$pairs %>%
-          reduce2(c(1,2),\(f,v,i) {
-            # if the element is valid
-            if (!all(is.na(v))) {
-              # add a heatmap trace
-              f %>%
-                add_trace(
-                  type = "heatmap",
-                  x = form(v[1]), # x variable
-                  y = form(v[2]), # y variable
-                  z = form(v[3]), # z (color) variable
-                  colorscale = cscale(v[4],n = 100), # color palette, based on 100 gradations
-                  # style the colorbar
-                  colorbar = list(
-                    # show the appropriate display name
-                    title=list(text=value_map[v[3]]),
-                    # determine the position of the colorbar
-                    # bottom if it's the first one, top if it's the second
-                    y = ifelse(i == 1,0,1),
-                    # which side of the colorbar we reckon the y-anchor from
-                    yanchor = ifelse(i == 1,"bottom","top"),
-                    len = 0.5,
-                    lenmode = "fraction"
-                  ),
-                  # text template
-                  text = ~str_glue("{pop1} - {pop2}"),
-                  # hover text template (hide the trace name with <extra></extra>)
-                  hovertemplate=str_glue("%{{text}}<br>{value_map[v[3]]}: %{{z:{v[5]}}}<extra></extra>")
-                )
-            } else return(f)
-          },.init = fig) %>%
-          # name the figure
-          layout(
-            xaxis = list(title = "Pool 1", fixedrange = TRUE),
-            yaxis = list(title = "Pool 2", fixedrange = TRUE)
-          ) %>%
-          # hide the mode bar
-          config(displayModeBar = FALSE)
-          # layout(xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE))
+        # cutoff slider handler code (js)
+        # note double curly braces because the whole thing is
+        # wrapped in str_glue
+        cutoff_script <- tags$script(HTML(str_glue(
+        '
+           $(function() {{
+             $("#cutoff-sel-{method$method}-{trace_vars$name}").labeledslider({{
+               min: {params$min_cov},
+               max: {params$max_cov},
+               step: {params$cov_step},
+               tickInterval: {params$cov_step},
+               change: function (e, ui) {{
+                 var fig = $("#heatmap-fig-{method$method}-{trace_vars$name}")[0];
+                 var figdata = $(`#heatmap-json-{method$method}-{trace_vars$name}-${{ui.value}}`).text();
+                 $("#cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
+                 Plotly.react(fig,JSON.parse(figdata));
+               }},
+               slide: function (e, ui) {{
+                 var fig = $("#heatmap-fig-{method$method}-{trace_vars$name}")[0];
+                 var figdata = $(`#heatmap-json-{method$method}-{trace_vars$name}-${{ui.value}}`).text();
+                 $("#cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
+                 Plotly.react(fig,JSON.parse(figdata));
+               }}
+             }});
 
-        # print the figure as html
-        print(htmltools::tagList(fig))
+          }});
+        '
+        )))
+        print(cutoff_script)
+
+        print(tags$h5(tags$small(HTML(
+          "Note: Grey cells indicate missing data."
+        ))))
+
+        # now walk through coverage cutoff levels
+        # and create figure and/or figure json for each one
+        cutoffs %>%
+          walk(\(cutoff) {
+            # filter data by coverage cutoff
+            # and summarize by pool comparison
+            fst_data <- fst_data %>%
+              filter(avg_min_cov >= cutoff) %>%
+              group_by(pop1,pop2) %>%
+              summarise(
+                fst_sd = sd(fst,na.rm=TRUE),
+                fst_se = fst_sd / sqrt(n()),
+                cov = mean(avg_min_cov,na.rm=TRUE),
+                cov_sd = sd(avg_min_cov,na.rm = TRUE),
+                cov_se = cov_sd / sqrt(n()),
+                snps = n(),
+                contigs = n_distinct(chrom,na.rm = TRUE),
+                snps_per_contig = snps / contigs,
+                fst = mean(fst,na.rm=TRUE)
+              ) %>%
+              ungroup() %>%
+              # retain the cutoff level in the data
+              mutate(cutoff=cutoff)
+            
+            # get all pool names
+            all_pops <- sort(union(unique(fst_data$pop1),unique(fst_data$pop2)))
+
+            # create a tibble of all possible combinations (sorted)
+            full_table <- all_pops %>%
+              combn(2) %>%
+              apply(MARGIN = 2,FUN=\(x) sort(x)) %>%
+              t() %>%
+              as_tibble() %>%
+              rename(pop1=1,pop2=2)
+
+            # convert pool names to factors with all possible levels
+            # make sure pop2 has levels in reverse so the figure looks right
+            # (i.e., a nice triangle)
+            # we left join from the table of all combos so we have all combos, even
+            # if some have missing data
+            hmd <- full_table %>%
+              left_join(fst_data,by=c("pop1","pop2")) %>%
+              arrange(pop1,desc(pop2)) %>%
+              mutate(
+                pop1 = factor(pop1,levels=all_pops),
+                pop2 = factor(pop2,levels=rev(all_pops))
+              ) %>%
+              mutate(
+                # create columns for the tooltip text
+                across(where(is.numeric),\(x) x,.names = "{.col}_val"),
+                # replace misisng integers with -1
+                across(where(is.integer) & !ends_with("_val"),\(x) replace_na(x,-1)),
+                # replace missing floats with min(x)*1e-5
+                across(where(is.double) & !ends_with("_val"),\(x) replace_na(x,min(x,na.rm = TRUE)*0.00001))
+              ) %>%
+              arrange(pop1,desc(pop2))
+
+            # get the factor level that would be the top row of the plot
+            top_level <- last(levels(hmd$pop2))
+
+            # now we make a dummy table for just that top row
+            top_row <- hmd %>%
+              filter(pop1 == top_level) %>%
+              # switch pop1 and pop2
+              mutate(temp=pop1,pop1=pop2,pop2=temp) %>%
+              # drop the temp column
+              select(-temp) %>%
+              # set all numeric values to NA
+              mutate(across(-c(pop1,pop2),~NA))
+
+            # bind dummy values to plot data
+            # it seems to matter that we bind these
+            # to the end, rather than the other way around
+            hmd <- hmd %>%
+              bind_rows(top_row)
+
+            # create an empty plotly figure
+            # don't show tooltips if there's no data
+            fig <- hmd %>%
+              plot_ly(hoverongaps=FALSE)
+
+            # now we go through each figure pair
+            # and reduce them to a single plotly figure
+            # that c(1,2) is just to keep track of if we're on
+            # the lower or upper triangle
+            fig <- trace_vars$pairs %>%
+              reduce2(c(1,2),\(f,v,i) {
+                # if the element is valid
+                if (!all(is.na(v))) {
+                  # add a heatmap trace
+                  f %>%
+                    add_trace(
+                      type = "heatmap",
+                      x = ~.data[[v[1]]], # x variable
+                      y = ~.data[[v[2]]], # y variable
+                      z = ~.data[[v[3]]], # z (color) variable
+                      # this is what gets shown in the tooltip
+                      customdata = ~fix_na( sprintf( str_c("%",v[5]), .data[[ str_glue("{v[3]}_val") ]] ) ),
+                      # zmin and zmax are trying to make it so the "missing" 
+                      # color doesn't show up in the color scale legend
+                      zmin = ~min(.data[[v[[3]]]],na.rm = TRUE)*0.00001,
+                      zmax = ~max(.data[[v[3]]],na.rm = TRUE),
+                      colorscale = cscale(v[4],n = 100,na = v[6]), # color palette, based on 100 gradations
+                      # style the colorbar
+                      colorbar = list(
+                        # show the appropriate display name
+                        title=list(text=value_map[v[3]]),
+                        # determine the position of the colorbar
+                        # bottom if it's for the bottom triangle, top if it's for the top
+                        y = ifelse(i == 1,0,1),
+                        # which side of the colorbar we reckon the y-anchor from
+                        yanchor = ifelse(i == 1,"bottom","top"),
+                        len = 0.5,
+                        lenmode = "fraction"
+                      ),
+                      # text template
+                      text = ~str_glue("{pop1} - {pop2}"),
+                      # hover text template (hide the trace name with <extra></extra>)
+                      hovertemplate=str_glue("%{{text}}<br>{value_map[v[3]]}: %{{customdata}}<extra></extra>")
+                    )
+                } else return(f)
+              },.init = fig) %>%
+              layout(
+                # name the figure axes and don't let the user zoom around
+                xaxis = list(title = "Pool 1", fixedrange = TRUE),
+                yaxis = list(title = "Pool 2", fixedrange = TRUE)
+              ) %>%
+              # hide the mode bar
+              config(displayModeBar = FALSE)
+
+            # assign id attribute to plotly div
+            fig_id <- str_glue("heatmap-fig-{method$method}-{trace_vars$name}")
+            fig$elementId <- fig_id
+
+            if (cutoff == first(cutoffs)) {
+              # output the figure to the report, but only if it's the first coverage cutoff
+              print(tagList(fig))
+            }
+
+            # get minified figure json
+            fig_json <- fig %>%
+              plotly_json(jsonedit = FALSE) %>%
+              jsonlite::minify()
+
+            # create and print script tag with figure data json
+            # we use this to draw the other cutoff level figures when the slider is dragged
+            script_tag <- tags$script(
+              id = str_glue("heatmap-json-{method$method}-{trace_vars$name}-{cutoff}"),
+              type = 'application/json',
+              HTML(fig_json)
+            )
+            print(script_tag)
+          })
+
       })
   })
 ```
 
+```{r, fst-correlation, results='asis', eval=show_fst}
+cat("# F<sub>st</sub> method correlations {.tabset}\n\n")
+
+# get calculation methods
+methods <- unique(pool_data$method)
+# split the dataset into subsets by calculation method
+splot <- pool_data %>%
+  split(.$method)
+methods %>%
+  combn(2) %>%
+  array_branch(2) %>%
+  walk(\(pair) {
+    cat(str_glue("## F<sub>st</sub> correlation: {pair[1]} vs {pair[2]}\n\n"))
+    print(tags$h5(tags$small(HTML("Note: Due to potentially large datasets, only a subsample of 1,000 F<sub>st</sub> values is shown here."))))
+
+    # make a joined table with both methods and subsample to 1000 rows
+    corr <- splot[[pair[1]]] %>%
+      sample_n(1000) %>%
+      inner_join(splot[[pair[2]]],by=c("chrom","pos","pop1","pop2"))
+
+    # do a linear regression
+    lmm <- lm(fst.y ~ fst.x, data=corr)
+    
+    # get predicted data for the trend line
+    corr <- corr %>%
+      mutate(
+        predicted = lmm %>%
+          predict(corr %>% select(fst.x))
+      ) 
+
+    # get method names
+    xtitle <- pair[1]
+    ytitle <- pair[2]
+
+    # plot the figure
+    fig <- corr %>%
+      plot_ly() %>%
+      # add 1:1 line
+      add_trace(
+        x = ~fst.x,
+        y = ~fst.x,
+        type = 'scatter',
+        mode = 'lines',
+        line = list(color = '#232323', width = 0.7)
+      ) %>%
+      # add scatter 
+      add_trace(
+        x = ~fst.x,
+        y = ~fst.y,
+        type = 'scatter',
+        mode = 'markers',
+        marker = list(color = 'black')
+      ) %>%
+      # add trend line
+      add_trace(
+        x = ~fst.x,
+        y = ~predicted,
+        type = 'scatter',
+        mode = 'lines',
+        line = list(color = 'lightskyblue', dash="dash", width = 0.7)
+      ) %>%
+      layout(
+        # label axes
+        xaxis = list(title = str_glue("F<sub>st</sub> ({xtitle})")),
+        yaxis = list(title = str_glue("F<sub>st</sub> ({ytitle})"))
+      ) %>%
+      # disappear the legends
+      hide_guides()
+
+    print(tagList(fig))
+  })
+```
+
 ```{r, fisher, results='asis', eval=show_fisher}
+# TODO: do this with a slider
 cat("# Fisher test plots {.tabset}\n\n")
+print(tags$h5(tags$small("Static plots are presented due to the potential for very large datasets.")))
 
 fisher_data %>%
   group_by(method) %>%
   group_walk(\(fishr,method) {
     cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-    fisher_cov <- cutoffs %>%
-      set_names() %>%
-      map(\(cov) {
-        fishr %>%
+    cutoffs %>%
+      # set_names() %>%
+      walk(\(cov) {
+        cat(str_glue("### Coverage ≥{cov}\n\n"))
+        fig <- fishr %>%
           # filter by average minimum coverage
           filter(avg_min_cov >= cov) %>%
           # retain the cutoff level in the data
@@ -944,19 +1089,15 @@ fisher_data %>%
           summarise( log_fisher = mean(log_fisher) ) %>%
           ungroup() %>%
           arrange(chrom,pos) %>%
-          mutate(snp = row_number())
+          mutate(snp = row_number()) %>%
+          
+          ggplot() +
+          geom_point(aes(x=snp,y=log_fisher),size=1) +
+          geom_hline(yintercept = -log10(0.05), color="red") +
+          theme_bw() +
+          labs(x = 'SNP', y=expression(paste(x[i])))
+        print(fig)
+        cat("\n\n")
       })
-
-      fisher_cov %>%
-        iwalk(\(fish,cov) {
-          cat(str_glue("### Coverage ≥{cov}\n\n"))
-          fig <- ggplot(fish) +
-            geom_point(aes(x=snp,y=log_fisher),size=1) +
-            geom_hline(yintercept = -log10(0.05), color="red") +
-            theme_bw() +
-            labs(x = 'SNP', y=expression(paste(x[i])))
-          print(fig)
-          cat("\n\n")
-        })
   })
 ```
