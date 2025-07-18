@@ -33,7 +33,7 @@ params:
 
 .ui-slider-wrapper{position:relative}.ui-slider-wrapper .ui-slider-horizontal{width:100%}.ui-slider-labels{position:absolute;border:1px solid transparent}.ui-slider-label-ticks{border:1px solid transparent;position:absolute;white-space:nowrap}.ui-slider-label-ticks span{font-size:.9em;min-width:1.2em}.ui-slider-wrapper.horizontal{height:4.5em}.horizontal .ui-slider-labels{left:0;right:0;top:.7em}.horizontal .ui-slider-label-ticks{width:1.2em;height:.8em;text-align:center;border-left:1px solid #999}.horizontal .ui-slider-label-ticks span{position:relative;display:inline-block;margin-left:-1.2em;top:.8em}.ui-slider-wrapper.vertical{width:4.5em}.vertical .ui-slider-labels{top:1px;bottom:0;left:.7em}.vertical .ui-slider-label-ticks{height:1.2em;width:.8em;border-bottom:1px solid #999}.vertical .ui-slider-label-ticks span{position:relative;display:inline-block;margin-left:1em;top:.6em}
 
-.heatmap-coverage-slider {
+.coverage-slider {
   width: 40%;
 }
 </style>
@@ -172,10 +172,12 @@ This report summarizes the output of population genetic analyses of a pool-seq R
 ```{r, results='asis', eval=show_filter}
 cat("# Filtering\n")
 
+# TODO: show filter option values on plot/table
+
 print(
   tagList(
-    tags$h4('SNPs remaining after each filtering step.'),
-    tags$h5(tags$small('Note: filtering results displayed are independent, not cumulative.'))
+    h4('SNPs remaining after each filtering step.'),
+    h5(tags$small('Note: filtering results displayed are independent, not cumulative.'))
   )
 )
 filters <- filters %>%
@@ -202,7 +204,7 @@ unchanged <- filters %>%
 
 unchanged <- str_glue("<b>{unchanged}</b>")
 unchanged <- str_c(unchanged,collapse=", ")
-print(tags$h5(tags$small("Filter options with no effect: {unchanged}.")))
+print(h5(tags$small("Filter options with no effect: {unchanged}.")))
 
 font <- list(
   family = "Courier New",
@@ -257,21 +259,12 @@ summary_datasets <- pool_data %>%
 
         # filter data for all pools if necessary
         if (all_shared) {
-          # get all unique pool names
-          all_pools <- sort(
-            union(
-              unique(fst_data$pop1),
-              unique(fst_data$pop2)
-            )
-          )
-
-          # group data by snp (chrom/pos) and retain
-          # snps where all populations are represented in comparisons
-          # (either side)
           fst_data <- fst_data %>%
+            mutate(pop1=factor(pop1),pop2=factor(pop2)) %>%
             group_by(chrom,pos) %>%
-            filter(all(all_pools %in% unique(c(unique(pop1),unique(pop2))))) %>%
-            ungroup()
+            filter( all( unique(c(levels(pop1),levels(pop2))) %in% c(pop1,pop2) ) ) %>% 
+            ungroup() %>%
+            arrange(chrom,pos,pop1,pop2)
         }
 
         # repeatedly filter the dataset for different coverage levels
@@ -319,6 +312,8 @@ summary_datasets <- pool_data %>%
         shared <- ifelse(all_shared,"all","shared")
         filename <- str_glue("{method$method}_{shared}_summary")
 
+        # a javascript callback that rounds numbers to the 
+        # nearest thousand. otherwise the table is full of stuff like 0.3412341234123412341234
         js <- DT::JS(
           "function ( data, type, row, meta ) {",
           "return type === 'display' ?",
@@ -330,7 +325,7 @@ summary_datasets <- pool_data %>%
         # show plot table
         cat(str_glue("#### Plot\n\n"))
 
-        print(tags$h5("Global summary statistics by coverage cutoff"))
+        print(h5("Global summary statistics by coverage cutoff"))
 
         # TODO: use error_y for SD of fst
         # plot_ly(
@@ -471,8 +466,8 @@ summary_datasets <- pool_data %>%
         # configure annotation properties
         annotation <- list(
           list(
-            text = "Total",
-            x = .1,
+            text = "Statistic",
+            x = .15,
             y = 1.22,
             xref = 'paper',
             yref = 'paper',
@@ -497,7 +492,7 @@ summary_datasets <- pool_data %>%
         # show data table tab
         cat(str_glue("#### Table\n\n"))
 
-        print(tags$h5("Global summary statistics by coverage cutoff"))
+        print(h5("Global summary statistics by coverage cutoff"))
 
         # output the datatable
         print(
@@ -539,6 +534,8 @@ summary_datasets <- pool_data %>%
 
 ```{r fst-cov-all, results='asis', eval=show_fst}
 cat("# Pairwise F<sub>st</sub> by minimum coverage {.tabset}\n\n")
+# TODO: tie slider position in this plot to heatmap coverage slider
+# (corresponding to method, shared snps, etc.)
 
 # walk through calculation methods
 pool_data %>%
@@ -709,7 +706,8 @@ pool_data %>%
 ```
 
 ```{r, heatmap-setup, results='asis', eval=show_fst}
-cat("# Summary heatmaps {.tabset}\n\n")
+# TODO: add all snps/shared loci to heatmap plots
+cat("# Summary statistic heatmaps {.tabset}\n\n")
 
 # a list of parameters we'll use to plot each figure
 # each item consists of: display name, bottom-left heatmap, and (optionally) top-right heatmap
@@ -784,19 +782,19 @@ pool_data %>%
       walk(\(trace_vars) {
         # and show the tab header
         cat(str_glue("### {trace_vars$title}\n\n"))
-        print(tags$h5(HTML(trace_vars$description)))
+        print(h5(HTML(trace_vars$description)))
 
         # create cutoff slider
-        cutoff_sel <- tags$div(
-          class="heatmap-coverage-slider",
+        cutoff_sel <- div(
+          class="coverage-slider",
           tagList(
             tags$label(
-              id=str_glue("cutoff-label-{method$method}-{trace_vars$name}"),
-              `for`=str_glue("cutoff-sel-{method$method}-{trace_vars$name}"),
+              id=str_glue("heatmap-cutoff-label-{method$method}-{trace_vars$name}"),
+              `for`=str_glue("heatmap-cutoff-sel-{method$method}-{trace_vars$name}"),
               str_glue('Minimum coverage: {params$min_cov}')
             ),
-            tags$div(
-              id=str_glue("cutoff-sel-{method$method}-{trace_vars$name}")
+            div(
+              id=str_glue("heatmap-cutoff-sel-{method$method}-{trace_vars$name}")
             )
           )
         )
@@ -808,7 +806,7 @@ pool_data %>%
         cutoff_script <- tags$script(HTML(str_glue(
         '
            $(function() {{
-             $("#cutoff-sel-{method$method}-{trace_vars$name}").labeledslider({{
+             $("#heatmap-cutoff-sel-{method$method}-{trace_vars$name}").labeledslider({{
                min: {params$min_cov},
                max: {params$max_cov},
                step: {params$cov_step},
@@ -816,13 +814,13 @@ pool_data %>%
                change: function (e, ui) {{
                  var fig = $("#heatmap-fig-{method$method}-{trace_vars$name}")[0];
                  var figdata = $(`#heatmap-json-{method$method}-{trace_vars$name}-${{ui.value}}`).text();
-                 $("#cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
+                 $("#heatmap-cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
                  Plotly.react(fig,JSON.parse(figdata));
                }},
                slide: function (e, ui) {{
                  var fig = $("#heatmap-fig-{method$method}-{trace_vars$name}")[0];
                  var figdata = $(`#heatmap-json-{method$method}-{trace_vars$name}-${{ui.value}}`).text();
-                 $("#cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
+                 $("#heatmap-cutoff-label-{method$method}-{trace_vars$name}").text(`Minimum coverage: ${{ui.value}}`);
                  Plotly.react(fig,JSON.parse(figdata));
                }}
              }});
@@ -832,7 +830,7 @@ pool_data %>%
         )))
         print(cutoff_script)
 
-        print(tags$h5(tags$small(HTML(
+        print(h5(tags$small(HTML(
           "Note: Grey cells indicate missing data."
         ))))
 
@@ -1007,7 +1005,7 @@ methods %>%
   array_branch(2) %>%
   walk(\(pair) {
     cat(str_glue("## F<sub>st</sub> correlation: {pair[1]} vs {pair[2]}\n\n"))
-    print(tags$h5(tags$small(HTML("Note: Due to potentially large datasets, only a subsample of 1,000 F<sub>st</sub> values is shown here."))))
+    print(h5(tags$small(HTML("Note: Due to potentially large datasets, only a subsample of 1,000 F<sub>st</sub> values is shown here."))))
 
     # make a joined table with both methods and subsample to 1000 rows
     corr <- splot[[pair[1]]] %>%
@@ -1070,16 +1068,61 @@ methods %>%
 ```{r, fisher, results='asis', eval=show_fisher}
 # TODO: do this with a slider
 cat("# Fisher test plots {.tabset}\n\n")
-print(tags$h5(tags$small("Static plots are presented due to the potential for very large datasets.")))
+print(h5(tags$small(
+  "Fisher test results are presented as static plots due to the potentially large size of the datasets."
+)))
 
 fisher_data %>%
   group_by(method) %>%
   group_walk(\(fishr,method) {
-    cat(str_glue("## {method$method} {{.tabset}}\n\n"))
-    cutoffs %>%
+    cat(str_glue("## {method$method}\n\n"))
+    
+    # make slider for coverage cutoff
+    cutoff_slider <- div(
+      class="coverage-slider",
+      tagList(
+        tags$label(
+          id=str_glue("fisher-cutoff-label-{method$method}"),
+          `for`=str_glue("fisher-cutoff-sel-{method$method}"),
+          str_glue('Minimum coverage: {params$min_cov}')
+        ),
+        div(
+          id=str_glue("fisher-cutoff-sel-{method$method}")
+        )
+      )
+    )
+    print(cutoff_slider)
+    
+    cutoff_script <- tags$script(HTML(str_glue(
+    '
+      $(function() {{
+        $("#fisher-cutoff-sel-{method$method}").labeledslider({{
+          min: {params$min_cov},
+          max: {params$max_cov},
+          step: {params$cov_step},
+          tickInterval: {params$cov_step},
+          change: function (e, ui) {{
+            $(".fisher-plotz-{method$method}").hide();
+            $(`#fisher-plot-{method$method}-${{ui.value}}`).show(); 
+            $("#fisher-cutoff-label-{method$method}").text(`Minimum coverage: ${{ui.value}}`);
+          }},
+          slide: function (e, ui) {{
+            $(".fisher-plotz-{method$method}").hide();
+            $(`#fisher-plot-{method$method}-${{ui.value}}`).show(); 
+            $("#fisher-cutoff-label-{method$method}").text(`Minimum coverage: ${{ui.value}}`);
+          }}
+        }});
+     }});
+    '
+    )))
+    print(cutoff_script)
+    
+    print(h6(HTML("Points above red line indicate <em>p</em> &lt; 0.05.")))
+    
+    figs <- cutoffs %>%
       # set_names() %>%
-      walk(\(cov) {
-        cat(str_glue("### Coverage ≥{cov}\n\n"))
+      map(\(cov) {
+        # cat(str_glue("### Coverage ≥{cov}\n\n"))
         fig <- fishr %>%
           # filter by average minimum coverage
           filter(avg_min_cov >= cov) %>%
@@ -1090,14 +1133,27 @@ fisher_data %>%
           ungroup() %>%
           arrange(chrom,pos) %>%
           mutate(snp = row_number()) %>%
-          
           ggplot() +
           geom_point(aes(x=snp,y=log_fisher),size=1) +
           geom_hline(yintercept = -log10(0.05), color="red") +
           theme_bw() +
-          labs(x = 'SNP', y=expression(paste(x[i])))
-        print(fig)
-        cat("\n\n")
+          labs(x = 'SNP', y=expression(paste(-log[10]~"(p-value)")))
+        
+          disp <- if(cov == first(cutoffs)) "" else "display: none"
+          plotTag(
+            fig,
+            alt=str_glue("Fisher's exast test p-values for coverage ≥{cov}"),
+            width = 672,
+            attribs = list(
+              id = str_glue("fisher-plot-{method$method}-{cov}"),
+              class = str_glue('fisher-plotz-{method$method}'),
+              style = disp    
+            )
+          )
       })
+    print(div(
+      id='fisher-container',
+      tagList( figs )
+    ))
   })
 ```
