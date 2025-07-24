@@ -55,7 +55,7 @@ workflow POSTPROCESS {
         .map{ id, meta, f -> [ meta, f ] }
 
     // build rmarkdown report input and params
-    def file_keys = [ 'fst', 'fisher', 'filter', 'final_filter' ]
+
     // get report file channel as [ meta, reportfile ]
     ch_report = ch_vcf.map { [ it[0], file("${projectDir}/assets/assesspool_report.Rmd") ] }
 
@@ -65,7 +65,6 @@ workflow POSTPROCESS {
         .mix( ch_filter.ifEmpty{ [] } )
         .mix( ch_filter_final.ifEmpty{ [] } )
         .groupTuple()
-        // .collect()
 
     ch_params = ch_input_files.
         map{ meta, files -> [ meta, files.collect{ [ it.extension, it.name ] }.collectEntries() ] }
@@ -75,10 +74,9 @@ workflow POSTPROCESS {
         ]]}
 
     CREATE_REPORT( ch_report, ch_params.map{meta, p -> p}, ch_input_files.map{meta, f -> f} )
+    ch_versions = ch_versions.mix(CREATE_REPORT.out.versions.first())
 
     emit:
-    // // TODO nf-core: edit emitted channels
-
     versions = ch_versions                     // channel: [ versions.yml ]
 }
 
