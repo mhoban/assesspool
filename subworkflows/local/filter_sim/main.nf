@@ -179,11 +179,7 @@ workflow FILTER_SIM {
 
     // turn all the count maps into tsv files describing filtering results
     ch_filter_summary = ch_filter_summary
-        .map{ meta, count -> meta.subMap('id') }
-        .unique()
-        .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }
-        .concat( ch_filter_summary )
-        .collectFile(newLine: true, sort: false) { meta, filter -> [ "${meta.id}.filter", "${filter.filter}\t${filter.count}" ] }
+        .collectFile(newLine: true, sort: true) { meta, filter -> [ "${meta.id}.filter", "${filter.filter}\t${filter.count}" ] }
         .map{ [it.baseName, it] }
 
     // join back to meta tag

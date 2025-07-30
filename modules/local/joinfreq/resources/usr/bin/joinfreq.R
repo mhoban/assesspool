@@ -77,7 +77,7 @@ opt <- parse_args(
     OptionParser(
         option_list=option_list,
         formatter=nice_formatter,
-        prog="fisher.R",
+        prog="joinfreq.R",
         usage="%prog [options] <frequency_file> <fst_file>"
     ),
     convert_hyphens_to_underscores = TRUE,

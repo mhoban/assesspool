@@ -19,7 +19,7 @@
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.(csv|tsv)$",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
+                    "description": "Path to comma/tab-separated file containing information about pools..",
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. See [usage docs](https://nf-co.re/assesspool/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
@@ -201,7 +201,7 @@
                     "description": "p-value threshold for Hardy-Weinberg equlibrium test."
                 },
                 "thin_snps": {
-                    "type": "boolean",
+                    "type": "integer",
                     "description": "Thin sites so that no two sites are within the specified distance from one another."
                 },
                 "min_mapping_quality": {
@@ -286,6 +286,11 @@
                 "poolfstat": {
                     "type": "boolean",
                     "description": "Calculate Fst using `poolfstat`"
+                },
+                "fst_cutoff": {
+                    "type": "number",
+                    "default": 0.7,
+                    "description": "Threshold at which Fst values are considered \"strongly differentiated.\""
                 },
                 "match_allele_count": {
                     "type": "boolean",
@@ -378,20 +383,24 @@
             "description": "",
             "default": "",
             "properties": {
-                "report_min_coverage": {
+                "min_coverage_cutoff": {
                     "type": "integer",
                     "default": 10,
                     "description": "Minimum coverage cutoff for report visualizations."
                 },
-                "report_max_coverage": {
+                "max_coverage_cutoff": {
                     "type": "integer",
                     "default": 70,
                     "description": "Maximum coverage cutoff for report visualizations."
                 },
-                "report_coverage_step": {
+                "coverage_cutoff_step": {
                     "type": "integer",
                     "default": 10,
                     "description": "Report coverage cutoff step."
+                },
+                "extract_sequences": {
+                    "type": "boolean",
+                    "description": "Extract reference contigs with sites having Fst > fst_cutoff (for any pairwise comparison)."
                 }
             }
         }

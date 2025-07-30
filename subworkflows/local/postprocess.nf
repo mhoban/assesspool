@@ -1,5 +1,6 @@
-include { RMARKDOWNNOTEBOOK as CREATE_REPORT    } from '../../modules/nf-core/rmarkdownnotebook/main'
-include { RIPGREP as COUNT_SNPS_FINAL           } from '../../modules/nf-core/ripgrep/main'
+include { RMARKDOWNNOTEBOOK as CREATE_REPORT } from '../../modules/nf-core/rmarkdownnotebook/main'
+include { RIPGREP as COUNT_SNPS_FINAL        } from '../../modules/nf-core/ripgrep/main'
+include { EXTRACT_SEQUENCES                   } from '../../modules/local/extractsequences/main'
 
 workflow POSTPROCESS {
 
@@ -18,10 +19,18 @@ workflow POSTPROCESS {
 
     ch_versions = Channel.empty()
 
+    // extract reference contigs with "strongly differentiated" snps
+    if (params.extract_sequences) {
+        EXTRACT_SEQUENCES( ch_ref, ch_fst, params.fst_cutoff )
+        ch_versions = ch_versions.mix(EXTRACT_SEQUENCES.out.versions.first())
+    }
+
+
     // collapse pairwise fisher tests into single files
     ch_fisher_collapsed = ch_fisher
-        .collectFile( keepHeader: true, sort: false, storeDir: 'output/fishertest' ){ meta, fish -> [ "${meta.id}.fisher", fish ] }
+        .collectFile( keepHeader: true, sort: true, storeDir: 'output/fishertest'  ){ meta, fish -> [ "${meta.id}.fisher", fish ] }
         .map{ [ it.baseName, it ] }
+
     // join them back to meta tags
     ch_fisher_collapsed = ch_vcf
         .map{ it[0] }
@@ -40,12 +49,9 @@ workflow POSTPROCESS {
 
     // collect final filter summary into tsv files
     ch_filter_final = ch_filter_final
-        .map{ meta, count -> meta.subMap('id') }
-        .unique()
-        .map{ meta -> [ meta, [ filter: 'filter', count: 'count' ] ] }
-        .concat( ch_filter_final )
-        .collectFile(newLine: true, sort: false) { meta, filter -> [ "${meta.id}.final_filter", "${filter.filter}\t${filter.count}" ] }
+        .collectFile(newLine: true, sort: true ) { meta, filter -> [ "${meta.id}.final_filter", "${filter.filter}\t${filter.count}" ] }
         .map{ [ it.baseName, it ] }
+
     // join them back to the meta tags
     ch_filter_final = ch_vcf
         .map{ it[0] }
@@ -66,10 +72,19 @@ workflow POSTPROCESS {
         .mix( ch_filter_final.ifEmpty{ [] } )
         .groupTuple()
 
+    // subset the params object because there's at least one value that changes
+    // every time, which invalidates the caching
+    nf_params = [
+        'coverage_cutoff_step',
+        'max_coverage_cutoff',
+        'min_coverage_cutoff',
+        'visualize_filters'
+    ]
+
     ch_params = ch_input_files.
         map{ meta, files -> [ meta, files.collect{ [ it.extension, it.name ] }.collectEntries() ] }
         .map{ meta, p -> [ meta, p + [
-            nf: params,
+            nf: params.subMap(nf_params),
             tz: TimeZone.getDefault().getID()
         ]]}
 

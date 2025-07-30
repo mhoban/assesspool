@@ -27,7 +27,7 @@ params:
 ```{css, echo=FALSE}
 .sliderbar {
   position: fixed;
-  bottom: 20%;
+  bottom: 40%;
   margin-left: 0%;
   padding: 10px;
 }
@@ -35,13 +35,13 @@ params:
   width: 95%
 }
 ```
-<!-- 
-TODO: generate all figures and json in one spot so 
+<!--
+TODO: generate all figures and json in one spot so
 we're not doing multiple large data-access processes
 -->
 
 <script>
-// update any visible figures that are set to a different coverage cutoff
+// update any visible figures that were set to a different coverage cutoff
 function update_figures(parent,value) {
   $(parent).find('.fig-container:visible').each(function() {
     if ($(this).data('cutoff') != value) {
@@ -49,10 +49,9 @@ function update_figures(parent,value) {
       const json_prefix = $(this).data('json-prefix');
       const json = $(`#${json_prefix}-${value}`).text();
       var fig = $(`#${fig_id}`);
-      
+
       Plotly.react(fig.get(0),JSON.parse(json));
       $(this).data('cutoff',value);
-      console.log('updated');
     }
   });
 }
@@ -63,31 +62,31 @@ $(function() {
   // and activate it as a labeled slider
   $("#TOC2").detach().insertAfter("#TOC").show();
   $("#coverage-slider").labeledslider({
-    min: `r params$nf$report_min_coverage`,
-    max: `r params$nf$report_max_coverage`,
-    step: `r params$nf$report_coverage_step`,
-    tickInterval: `r params$nf$report_coverage_step`,
+    min: `r params$nf$min_coverage_cutoff`,
+    max: `r params$nf$max_coverage_cutoff`,
+    step: `r params$nf$coverage_cutoff_step`,
+    tickInterval: `r params$nf$coverage_cutoff_step`,
     slide: function (e,ui) {
-      $('#coverage-label').text(`Minimum coverage: ${ui.value}`)
+      $('.coverage-label').html(`Coverage cutoff: &#x2265;${ui.value}`)
       update_figures(document,ui.value);
     }
   });
-  
+
   // respond to tab change events
   // this is to update figures that were off-screen
   // when the coverage slider was moved
   $(document).on('shown.bs.tab', function (e) {
     var target = $(e.target.ariaControlsElements);
     var val = $("#coverage-slider").labeledslider('value');
-    update_figures(target,val); 
+    update_figures(target,val);
   });
-  
+
 });
 </script>
 
 <!-- coverage slider -->
 <div id="TOC2" class="sliderbar tocify" style="display: none">
-  <label id="coverage-label" for="coverage-slider">Minimum coverage: `r params$nf$report_min_coverage`</label>
+  <label id="coverage-label" class="coverage-label" for="coverage-slider">Coverage cutoff: &#x2265;`r params$nf$min_coverage_cutoff`</label>
   <div id="coverage-slider"></div>
 </div>
 <!-- end coverage slider -->
@@ -165,7 +164,7 @@ gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
 }
 
 # get a sequence of coverage cutoffs from input parameters
-cutoffs <- seq(params$nf$report_min_coverage,params$nf$report_max_coverage,params$nf$report_coverage_step)
+cutoffs <- seq(params$nf$min_coverage_cutoff,params$nf$max_coverage_cutoff,params$nf$coverage_cutoff_step)
 
 # load pool data
 # start with fst
@@ -189,7 +188,7 @@ if (show_fisher) {
 # whether to show VCF filtering
 show_filter <- params$nf$visualize_filters & !is.null(params$filter)
 if (show_filter) {
-  filters <- read_tsv(params$filter)
+  filters <- read_tsv(params$filter,col_names = c('filter','count'))
 } else {
   filters <- NULL
 }
@@ -197,7 +196,7 @@ if (show_filter) {
 # whether to show cumulative filtering
 show_final_filter <- params$nf$visualize_filters & !is.null(params$final_filter)
 if (show_final_filter) {
-  final_filters <- read_tsv(params$final_filter)
+  final_filters <- read_tsv(params$final_filter,col_names = c('filter','count'))
 } else {
   final_filters <- NULL
 }
@@ -249,7 +248,7 @@ c(show_filter,show_final_filter) %>%
           h5(tags$small(HTML(filter_notes[i])))
         )
       )
-      
+
       # rearrange filter data a bit
       # make sure 'Unfiltered' is in bold and comes first
       filter_data <- filter_data %>%
@@ -265,8 +264,8 @@ c(show_filter,show_final_filter) %>%
             .default = filtered
           ),
           changed = filtered > 0
-        ) 
-      
+        )
+
       # figure out which options did nothing
       changed <- filter_data %>%
         filter(changed)
@@ -288,12 +287,12 @@ c(show_filter,show_final_filter) %>%
         family = "Courier New",
         size = 14
       )
-      
+
       # quick formatting function
       num <- scales::comma
       # tooltip template
       t_fmt <- '<b>Before filtering: {num(count[filter == "<b>Unfiltered</b>"])} SNPs<br>After filtering:  {num(count)} SNPs</b>'
-      
+
       # make the bar chart
       # we use ggplot because it's better at doing continuous color scales
       # for bar plots, then convert it to a plotly plot after the fact
@@ -529,11 +528,11 @@ pool_data %>%
         )
 
         # add layout and annotation to figure
-        fig <- fig %>% 
+        fig <- fig %>%
           layout(
             yaxis = list(title = "Mean F<sub>st</sub>",fixedrange=TRUE),
             xaxis = list(title = "Coverage cutoff",fixedrange=TRUE),
-            title = list(text=str_glue("Summary statistics by coverage cutoff - {method$method}"), yref= 'paper', y=1),
+            title = list(text=str_glue("Summary statistics by coverage cutoff - {method$method}"), yref= 'paper', y=1, font=list(size=12)),
             showlegend = F,
             updatemenus = list(button_layout),
             annotations = annotation
@@ -675,8 +674,13 @@ pool_data %>%
                 margin=list(l = 100, r = 20, b = 10, t = 30),
                 yaxis = list(title="",tickangle=-35,tickfont=list(size=12)),
                 xaxis = list(title="F<sub>st</sub>",tickfont=list(size=12), range=as.list(xrange)),
-                title = list(text=str_glue("F<sub>st</sub> - {hdr}"), y=0.95)
-              )
+                title = list(text=str_glue("F<sub>st</sub> - {hdr} (coverage &#x2265;{cutoff})"), y=0.95, font=list(size=12))
+              ) %>%
+              config(toImageButtonOptions = list(
+                format = "svg",
+                width = 900,
+                height = 600
+              ))
 
             # output the figure to html
             if (is.null(figs$scatter_fig)) {
@@ -712,8 +716,8 @@ pool_data %>%
               group_by(pop1,pop2,pair) %>%
               summarise(outs = boxplot.stats(fst)$out)  %>%
               slice_sample(n=30) %>%
-              ungroup() 
-            
+              ungroup()
+
             # generate boxplot figure
             fig <- fst_grp %>%
               plot_ly(
@@ -737,8 +741,14 @@ pool_data %>%
               layout(showlegend = FALSE) %>%
               layout(
                 yaxis = list(tickangle=-35,tickfont=list(size=12),title=""),
-                xaxis = list(tickfont=list(size=12),title="F<sub>st</sub>")
-              )
+                xaxis = list(tickfont=list(size=12),title="F<sub>st</sub>"),
+                title = list(text=str_glue("F<sub>st</sub> distribution - {hdr} (coverage &#x2265;{cutoff})"), y=0.95, font=list(size=12))
+              ) %>%
+              config(toImageButtonOptions = list(
+                format = "svg",
+                width = 900,
+                height = 600
+              ))
 
             # save figure for output
             if (is.null(figs$box_fig)) {
@@ -840,8 +850,9 @@ cscale <- function(pal,n=10,na="darkgrey",min=0.00001) {
     })
   if (!is.na(na)) {
     s[[1]][[1]] <- min
-    c(list(list(0,na), list(min,na)),s)
+    s <- c(list(list(0,na), list(min,na)),s)
   }
+  s
 }
 
 # replace "NA" (not NA) in a string vector
@@ -882,7 +893,7 @@ pool_data %>%
               "Note: Grey cells indicate missing data."
             ))))
 
-            # generate figure and output 
+            # generate figure and output
             # all necessary figure json
             heatmap_fig <- cutoffs %>%
               reduce(\(plot_fig,cutoff) {
@@ -904,13 +915,13 @@ pool_data %>%
                   ungroup() %>%
                   # retain the cutoff level in the data
                   mutate(cutoff=cutoff)
-
+                
                 # all this next bit is so that the heatmaps look good
                 # with all relevant rows of both the upper and lower triangles
                 
                 # get all possible pool names
                 all_pops <- sort(union(unique(fst_grp$pop1),unique(fst_grp$pop2)))
-
+                
                 # create a tibble of all possible combinations (sorted)
                 full_table <- all_pops %>%
                   combn(2) %>%
@@ -932,13 +943,10 @@ pool_data %>%
                     pop2 = factor(pop2,levels=rev(all_pops))
                   ) %>%
                   mutate(
+                    # record whether value was NA
+                    across(where(is.numeric),\(x) is.na(x),.names = "{.col}_na"),
                     # create columns for the tooltip text
-                    across(where(is.numeric),\(x) x,.names = "{.col}_val"),
-                    # replace misisng integers with -1
-                    across(where(is.integer) & !ends_with("_val"),\(x) replace_na(x,-1)),
-                    # replace missing floats with min(x)*1e-5
-                    # this is so we can show grey squares for missing data
-                    across(where(is.double) & !ends_with("_val"),\(x) replace_na(x,min(x,na.rm = TRUE)*0.00001))
+                    across(where(is.numeric),\(x) x,.names = "{.col}_val")
                   ) %>%
                   arrange(pop1,desc(pop2))
                 # get the factor level that would be the top row of the plot
@@ -958,11 +966,10 @@ pool_data %>%
                 # to the end, rather than the other way around
                 hmd <- hmd %>%
                   bind_rows(top_row)
-
+                
                 # start making the figure
-                fig <- hmd %>%
-                  plot_ly(hoverongaps=FALSE) 
-
+                fig <- plot_ly(hoverongaps=FALSE)
+                
                 # finish making the figure
                 fig <- trace_vars$pairs %>%
                   reduce2(c(1,2),\(plot_fig,v,i) {
@@ -970,8 +977,27 @@ pool_data %>%
                       # add the trace as either the upper or lower triangle
                       # depending on whether its #1 or #2
                       plot_fig %>%
+                        {
+                          if (sum(hmd[[str_glue("{v[3]}_na")]],na.rm = T) > 0 ) {
+                            add_trace(
+                              .,
+                              type="heatmap",
+                              hoverinfo = 'none',
+                              data = hmd %>% 
+                                filter( across( all_of(str_glue("{v[3]}_na")), \(na) na | is.na(na) ) ) %>%
+                                mutate(  "{v[3]}" := if_else(.data[[str_glue("{v[3]}_na")]] == TRUE,0,NA) ),
+                              x = ~.data[[v[1]]],
+                              y = ~.data[[v[2]]],
+                              z = ~.data[[v[3]]],
+                              colorscale = 'Greys',
+                              showscale = FALSE 
+                            )
+                          } else .
+                        } %>%
                         add_trace(
                           type = "heatmap",
+                          data = hmd, #%>% 
+                          # filter( across( all_of(str_glue("{v[3]}_na")), \(na) !na | is.na(na) ) ),
                           x = ~.data[[v[1]]], # x variable
                           y = ~.data[[v[2]]], # y variable
                           z = ~.data[[v[3]]], # z (color) variable
@@ -979,9 +1005,10 @@ pool_data %>%
                           customdata = ~fix_na( sprintf( str_c("%",v[5]), .data[[ str_glue("{v[3]}_val") ]] ) ),
                           # zmin and zmax are trying to make it so the "missing"
                           # color doesn't show up in the color scale legend
-                          zmin = ~min(.data[[v[[3]]]],na.rm = TRUE)*0.00001,
-                          zmax = ~max(.data[[v[3]]],na.rm = TRUE),
-                          colorscale = cscale(v[4],n = 10,na = v[6]), # color palette, based on 100 gradations
+                          # zmin = ~min(.data[[v[[3]]]],na.rm = TRUE),#*0.00001,
+                          # zmin = ~min(.data[[ str_glue("{v[3]}_val") ]],na.rm = TRUE),#*0.00001,
+                          # zmax = ~max(.data[[v[3]]],na.rm = TRUE),
+                          colorscale = cscale(v[4],n = 10,na = NA), # color palette, based on 100 gradations
                           # style the colorbar
                           colorbar = list(
                             # show the appropriate display name
@@ -1004,7 +1031,14 @@ pool_data %>%
                   layout(
                     # name the figure axes and don't let the user zoom around
                     xaxis = list(title = "Pool 1", fixedrange = TRUE),
-                    yaxis = list(title = "Pool 2", fixedrange = TRUE)
+                    yaxis = list(title = "Pool 2", fixedrange = TRUE),
+                    # title = str_glue("{trace_vars$title} (coverage cutoff: &#x2265;{cutoff}")
+                    title = list(
+                      text = str_glue("{trace_vars$title} (coverage cutoff: &#x2265;{cutoff})"),
+                      font = list(
+                        size = 12
+                      )
+                    )
                   ) %>%
                   # hide the mode bar
                   config(displayModeBar = FALSE)
@@ -1013,7 +1047,7 @@ pool_data %>%
                 if (is.null(plot_fig)) {
                   fig_id <- str_glue("heatmap-fig-{method$method}-{shr}-{trace_vars$name}")
                   fig$elementId <- fig_id
-                  # we stick it in a div with class 'fig-container' so 
+                  # we stick it in a div with class 'fig-container' so
                   # they're easy to find in the DOM using jquery
                   plot_fig <- tagList(
                     div(
@@ -1039,7 +1073,7 @@ pool_data %>%
                 print(json_tag)
 
                 return(plot_fig)
-              },.init = NULL) 
+              },.init = NULL)
 
             # output the heatmap figure
             print(heatmap_fig)
@@ -1062,7 +1096,7 @@ methods %>%
   combn(2) %>%
   array_branch(2) %>%
   walk(\(pair) {
-    cat(str_glue("## F<sub>st</sub> correlation: {pair[1]} vs {pair[2]}\n\n"))
+    cat(str_glue("## {pair[1]} vs {pair[2]}\n\n"))
     print(h5(tags$small(HTML("Note: Due to potentially large datasets, only a subsample of 1,000 F<sub>st</sub> values is shown here."))))
 
     # make a joined table with both methods and subsample to 1000 rows
@@ -1142,7 +1176,7 @@ fisher_data %>%
         tags$label(
           id=str_glue("fisher-cutoff-label-{method$method}"),
           `for`=str_glue("fisher-cutoff-sel-{method$method}"),
-          str_glue('Minimum coverage: {params$nf$report_min_coverage}')
+          str_glue('Minimum coverage: {params$nf$min_coverage_cutoff}')
         ),
         div(
           id=str_glue("fisher-cutoff-sel-{method$method}")
@@ -1155,10 +1189,10 @@ fisher_data %>%
     '
       $(function() {{
         $("#fisher-cutoff-sel-{method$method}").labeledslider({{
-          min: {params$nf$report_min_coverage},
-          max: {params$nf$report_max_coverage},
-          step: {params$nf$report_coverage_step},
-          tickInterval: {params$nf$report_coverage_step},
+          min: {params$nf$min_coverage_cutoff},
+          max: {params$nf$max_coverage_cutoff},
+          step: {params$nf$coverage_cutoff_step},
+          tickInterval: {params$nf$coverage_cutoff_step},
           change: function (e, ui) {{
             $(".fisher-plotz-{method$method}").hide();
             $(`#fisher-plot-{method$method}-${{ui.value}}`).show();

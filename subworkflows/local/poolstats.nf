@@ -127,10 +127,12 @@ workflow POOLSTATS {
         .map { id, meta, fst, method, freq -> [ meta, freq, fst, method ] }
         .set { ch_join }
 
+
     // join pairwise fst results to snp frequencies and concatenate into one big file per input
     ch_join = JOINFREQ( ch_join ).fst_freq
-        .collectFile( keepHeader: true, sort: false, storeDir: 'output/fst' ){ meta, joined -> [ "${meta.id}.fst", joined ] }
+        .collectFile( keepHeader: true, sort: true, storeDir: 'output/fst', cache: true ){ meta, joined -> [ "${meta.id}.fst", joined ] }
         .map{ [it.baseName, it ] }
+
     // rejoin meta tags
     ch_join = ch_vcf
         .map{ it[0] }
