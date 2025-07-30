@@ -996,18 +996,12 @@ pool_data %>%
                         } %>%
                         add_trace(
                           type = "heatmap",
-                          data = hmd, #%>% 
-                          # filter( across( all_of(str_glue("{v[3]}_na")), \(na) !na | is.na(na) ) ),
+                          data = hmd, 
                           x = ~.data[[v[1]]], # x variable
                           y = ~.data[[v[2]]], # y variable
                           z = ~.data[[v[3]]], # z (color) variable
                           # this is what gets shown in the tooltip
                           customdata = ~fix_na( sprintf( str_c("%",v[5]), .data[[ str_glue("{v[3]}_val") ]] ) ),
-                          # zmin and zmax are trying to make it so the "missing"
-                          # color doesn't show up in the color scale legend
-                          # zmin = ~min(.data[[v[[3]]]],na.rm = TRUE),#*0.00001,
-                          # zmin = ~min(.data[[ str_glue("{v[3]}_val") ]],na.rm = TRUE),#*0.00001,
-                          # zmax = ~max(.data[[v[3]]],na.rm = TRUE),
                           colorscale = cscale(v[4],n = 10,na = NA), # color palette, based on 100 gradations
                           # style the colorbar
                           colorbar = list(
@@ -1032,7 +1026,6 @@ pool_data %>%
                     # name the figure axes and don't let the user zoom around
                     xaxis = list(title = "Pool 1", fixedrange = TRUE),
                     yaxis = list(title = "Pool 2", fixedrange = TRUE),
-                    # title = str_glue("{trace_vars$title} (coverage cutoff: &#x2265;{cutoff}")
                     title = list(
                       text = str_glue("{trace_vars$title} (coverage cutoff: &#x2265;{cutoff})"),
                       font = list(
