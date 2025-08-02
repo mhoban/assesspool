@@ -1,14 +1,15 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages(library(dplyr))
-suppressPackageStartupMessages(library(tidyr))
-suppressPackageStartupMessages(library(readr))
-suppressPackageStartupMessages(library(janitor))
-suppressPackageStartupMessages(library(purrr))
+# suppressPackageStartupMessages(library(dplyr))
+# suppressPackageStartupMessages(library(tidyr))
+# suppressPackageStartupMessages(library(readr))
+# suppressPackageStartupMessages(library(janitor))
+# suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(matrixStats))
 
-options(dplyr.summarise.inform = FALSE)
+# options(dplyr.summarise.inform = FALSE)
 
 
 # help message formatter
@@ -163,15 +164,19 @@ if (!file.exists(opt$args[1])) {
 
 # split(ceiling(seq_along(.)/50)) %>%
 
-freq_snps <- read_tsv(opt$args[1],col_types = cols(),progress = FALSE)
+# freq_snps <- read_tsv(opt$args[1],col_types = cols(),progress = FALSE)
+freq_snps <- fread(opt$args[1])
 
 if (all(is.na(pools))) {
-  pools <- freq_snps %>%
-    slice(1) %>%
-    pivot_longer(-c(CHROM:ALT,starts_with("TOTAL",ignore.case = FALSE)),names_to = c("pool","measure"),values_to="count",names_pattern = "^(.+)\\.([^.]+)$") %>%
-    pull(pool) %>%
-    sort() %>%
-    unique()
+  pools <- melt(freq_snps[1], measure = measure(pool,measure,pattern = r'[^(.+)\.(REF_CNT)$]'),value.name = 'count')[
+    pool != 'TOTAL'
+  ][order(pool)]$pool
+  # pools <- freq_snps %>%
+  #   slice(1) %>%
+  #   pivot_longer(-c(CHROM:ALT,starts_with("TOTAL",ignore.case = FALSE)),names_to = c("pool","measure"),values_to="count",names_pattern = "^(.+)\\.([^.]+)$") %>%
+  #   pull(pool) %>%
+  #   sort() %>%
+  #   unique()
 }
 
 # make sure we're dealing with two pools
@@ -181,88 +186,176 @@ if (npool != 2) {
   stop("Frequency file must contain exactly two pools")
 }
 
-freq_snp_og <- freq_snps
-# continue filtering
-freq_snps <- freq_snp_og %>%
-  select(CHROM:ALT,starts_with(paste0(pools,"."),ignore.case = FALSE)) %>%
-  mutate(
-    `TOTAL.REF_CNT` = rowSums(pick(ends_with(".REF_CNT",ignore.case = FALSE))),
-    `TOTAL.ALT_CNT` = rowSums(pick(ends_with(".ALT_CNT",ignore.case = FALSE))),
-    `TOTAL.DEPTH` = rowSums(pick(ends_with(".DEPTH",ignore.case = FALSE))),
-  ) %>%
-  mutate(
-    lwr = floor((POS-1)/window_step)*window_step+1,
-    upr = lwr+window_size-1,
-    middle=floor((upr+lwr)/2)
-  ) %>%
-  filter( if_all(ends_with(".DEPTH"),~.x >= min_depth) ) %>%
-  add_count(CHROM,middle,name="snp_count") %>%
-  rename_with(make_clean_names,.cols = starts_with("TOTAL.",ignore.case = FALSE)) %>%
-  filter(
-    if_all(starts_with("total_",ignore.case = FALSE) & ends_with("_cnt",ignore.case = FALSE),~.x >= min_count),
-    total_ref_cnt != total_depth,
-    total_depth >= min_depth
-  ) %>%
-  rename_with(CHROM:ALT,.fn=make_clean_names) %>%
-  select(chrom,pos,middle,ref:alt,ends_with(".REF_CNT"),ends_with(".ALT_CNT"),starts_with("total_"),everything())
+cols <- names(freq_snps)
+pr <- paste0('^(',paste0(pools,collapse='|'),')')
 
-fisher_results <- freq_snps %>%
-  select(order(colnames(.))) %>%
-  select(
-    chrom, pos, middle, snp_count,start=lwr,end=upr,
-    ends_with(".DEPTH",ignore.case = FALSE),
-    ends_with(".REF_CNT",ignore.case = FALSE),
-    ends_with(".ALT_CNT",ignore.case = FALSE)
-  ) %>%
-  pivot_longer(
-    -c(chrom,pos,middle,snp_count,start,end,ends_with(".DEPTH",ignore.case = FALSE)),
-    names_to = c("pop","measure"),
-    values_to = "count",
-    names_pattern = "^(.+)\\.([^.]+)$"
-  ) %>%
-  group_by(chrom,pos,middle,start,end,snp_count,across(ends_with(".DEPTH",ignore.case = FALSE))) %>%
-  summarise(pval = fisher.test(matrix(count,ncol=2))$p.value) %>%
-  ungroup() %>%
-  mutate(min_cov = matrixStats::rowMins(as.matrix(pick(ends_with(".DEPTH",ignore.case = FALSE)))))
+# continue filtering
+# freq_snps <- freq_snps %>%
+#   select(CHROM:ALT,starts_with(paste0(pools,"."),ignore.case = FALSE)) %>%
+#   mutate(
+#     `TOTAL.REF_CNT` = rowSums(pick(ends_with(".REF_CNT",ignore.case = FALSE))),
+#     `TOTAL.ALT_CNT` = rowSums(pick(ends_with(".ALT_CNT",ignore.case = FALSE))),
+#     `TOTAL.DEPTH` = rowSums(pick(ends_with(".DEPTH",ignore.case = FALSE))),
+#   ) %>%
+#   mutate(
+#     lwr = floor((POS-1)/window_step)*window_step+1,
+#     upr = lwr+window_size-1,
+#     middle=floor((upr+lwr)/2)
+#   ) %>%
+#   filter( if_all(ends_with(".DEPTH"),~.x >= min_depth) ) %>%
+#   add_count(CHROM,middle,name="snp_count") %>%
+#   rename_with(make_clean_names,.cols = starts_with("TOTAL.",ignore.case = FALSE)) %>%
+#   filter(
+#     if_all(starts_with("total_",ignore.case = FALSE) & ends_with("_cnt",ignore.case = FALSE),~.x >= min_count),
+#     total_ref_cnt != total_depth,
+#     total_depth >= min_depth
+#   ) %>%
+#   rename_with(CHROM:ALT,.fn=make_clean_names) %>%
+#   select(chrom,pos,middle,ref:alt,ends_with(".REF_CNT"),ends_with(".ALT_CNT"),starts_with("total_"),everything())
+
+# try to do as much data.table stuff in-place (using `:=`) as possible to increase memory efficiency
+
+# first, delete columns we don't care about
+freq_snps[,cols[-c(1:4,grep(pr,cols))] := NULL ]
+# add a total ref count
+freq_snps[,TOTAL.REF_CNT := rowSums(.SD),.SDcols=patterns(r'[\.REF_CNT$]')]
+# add a total alt count
+freq_snps[,TOTAL.ALT_CNT := rowSums(.SD),.SDcols=patterns(r'[\.ALT_CNT$]')]
+# add total depth
+freq_snps[,TOTAL.DEPTH := rowSums(.SD),.SDcols=patterns(r'[\.DEPTH$]')]
+# add window start
+freq_snps[,start := floor((POS-1)/window_step)*window_step+1]
+# add window end
+freq_snps[,end := start+window_size-1]
+# add window center (position)
+freq_snps[,middle := floor((end+start)/2)]
+# add window snp count
+freq_snps[,snp_count := .N, by=.(CHROM,middle)]
+# filter to minimum depth
+freq_snps <- freq_snps[ freq_snps[,do.call(pmin,.SD) >= min_depth, .SDcols = patterns(r'[\.DEPTH$]')] ]
+# filter to minimum count, remove invariant sites, and minimum depth
+freq_snps <- freq_snps[ freq_snps[ , do.call(pmin,.SD) >= min_count, .SDcols = patterns(r'[^TOTAL\..+_CNT$]') ] ][
+  TOTAL.REF_CNT != TOTAL.DEPTH & TOTAL.DEPTH >= min_depth
+]
+setnames(freq_snps,old=c("CHROM","POS","REF","ALT"),new=tolower)
+setcolorder(freq_snps,neworder = c('chrom','pos','middle','ref','alt'))
+freq_snps[,grep('total',names(freq_snps),ignore.case = TRUE) := NULL ]
+cols <- names(freq_snps)
+mv <- c(cols[1:3],'snp_count','start','end',grep(r'[\.DEPTH$]',cols,value=TRUE),grep(r'[_CNT$]',cols,value=TRUE))
+setcolorder(freq_snps,mv)
+
+# fisher_results <- freq_snps %>%
+#   select(order(colnames(.))) %>%
+#   select(
+#     chrom, pos, middle, snp_count,start=lwr,end=upr,
+#     ends_with(".DEPTH",ignore.case = FALSE),
+#     ends_with(".REF_CNT",ignore.case = FALSE),
+#     ends_with(".ALT_CNT",ignore.case = FALSE)
+#   ) %>%
+#   pivot_longer(
+#     -c(chrom,pos,middle,snp_count,start,end,ends_with(".DEPTH",ignore.case = FALSE)),
+#     names_to = c("pop","measure"),
+#     values_to = "count",
+#     names_pattern = "^(.+)\\.([^.]+)$"
+#   ) %>%
+#   group_by(chrom,pos,middle,start,end,snp_count,across(ends_with(".DEPTH",ignore.case = FALSE))) %>%
+#   summarise(pval = fisher.test(matrix(count,ncol=2))$p.value) %>%
+#   ungroup() %>%
+#   mutate(min_cov = matrixStats::rowMins(as.matrix(pick(ends_with(".DEPTH",ignore.case = FALSE)))))
+
+# calculate fisher results
+
+# reshape frequency data and order ref and alt counts appropriately
+fisher_results <- melt(freq_snps, measure = measure(pop,measure,pattern = r'[^(.+)\.(.+_CNT)]'),value.name = 'count')[order(chrom,pos,-measure,pop)]
+
+# get columns to group by
+byc <- grep('^(pop|count|measure|ref|alt)$',names(fisher_results),invert = T,value = TRUE)
+# calculate fisher tests for each combination
+fisher_results <- fisher_results[,.(pval = fisher.test(matrix(count,ncol=2))$p.value),by=byc][order(chrom,pos)]
+fisher_results[,avg_min_cov := do.call(pmin,.SD),.SDcols = patterns(r'[\.DEPTH$]')]
 
 if (adjust_p) {
-  fisher_results <- fisher_results %>%
-    mutate(p_adj = p.adjust(pval,method=adjust_method))
+  fisher_results[, pval := p.adjust(pval,method=adjust_method)]
+  # fisher_results <- fisher_results %>%
+  #   mutate(p_adj = p.adjust(pval,method=adjust_method))
 }
 
 
 if (save_all & window_size > 1) {
   ss <- sprintf("%s/%s_%s_all_snps_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"))
-  fisher_results %>%
-    mutate(
-      fisher = -log10(pval),
-      pop1 = pools[1],
-      pop2 = pools[2],
-      window_size = 1,
-      covered_fraction = 1,
-      start=pos,
-      end=pos,
-    ) %>%
-    select(chrom,pos,snps,covered_fraction,avg_min_cov = min_cov,pop1,pop2,fisher) %>%
-    write_tsv(ss)
+  fisher_results[,`:=`(
+    fisher = -log10(pval),
+    pop1 = pools[1],
+    pop2 = pools[2],
+    window_size = 1,
+    covered_fraction = 1,
+    start=pos,
+    end=pos
+  )] 
+  
+  fwrite(
+      fisher_results[,c('chrom','pos','covered_fraction','avg_min_cov','pop1','pop2','fisher'),with=FALSE],
+      file = ss,
+      sep="\t"
+    )
+  # fisher_results %>%
+  #   mutate(
+  #     fisher = -log10(pval),
+  #     pop1 = pools[1],
+  #     pop2 = pools[2],
+  #     window_size = 1,
+  #     covered_fraction = 1,
+  #     start=pos,
+  #     end=pos,
+  #   ) %>%
+  #   select(chrom,pos,snps,covered_fraction,avg_min_cov = min_cov,pop1,pop2,fisher) %>%
+  #   write_tsv(ss)
 }
 
-fisher_results <- fisher_results %>%
-  group_by(chrom,middle,start,end,snp_count) %>%
-  summarise(
+if (window_type != 'single') {
+  fisher_results <- fisher_results[,.(
     fisher = -log10(p_combine(pval)),
     pop1 = pools[1],
     pop2 = pools[2],
-    window_size = n(),
+    window_size = .N,
     covered_fraction = unique(snp_count)/window_size,
-    avg_min_cov = mean(min_cov)
-  ) %>%
-  ungroup() %>%
-  mutate(
-    pos = floor((start+end)/2),
-    method = 'assesspool'
-  ) %>%
-  select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fisher,method)
+    avg_min_cov = mean(avg_min_cov)
+  ), by = .(chrom,middle,start,end,snp_count)]
+  fisher_results[,pos := floor((start+end)/2)]
+} else {
+  fisher_results[,`:=`(
+    covered_fraction = 1,
+    window_size = 1,
+    pop1 = pools[1],
+    pop2 = pools[2],
+    fisher = pval
+  )]
+}
+
+fisher_results[,method := 'assesspool']
+cols <- names(fisher_results)
+cn <- which(cols %in% c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','fisher','method'))
+fisher_results[,cols[-cn] := NULL]
+setcolorder(fisher_results,c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','fisher','method'))
+
+
+# fisher_results <- fisher_results %>%
+#   group_by(chrom,middle,start,end,snp_count) %>%
+#   summarise(
+#     fisher = -log10(p_combine(pval)),
+#     pop1 = pools[1],
+#     pop2 = pools[2],
+#     window_size = n(),
+#     covered_fraction = unique(snp_count)/window_size,
+#     avg_min_cov = mean(min_cov)
+#   ) %>%
+#   ungroup() %>%
+#   mutate(
+#     pos = floor((start+end)/2),
+#     method = 'assesspool'
+#   ) %>%
+#   select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fisher,method)
 
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)
-write_tsv(fisher_results,ss)
+fwrite(fisher_results,ss,sep="\t")
+# write_tsv(fisher_results,ss)
