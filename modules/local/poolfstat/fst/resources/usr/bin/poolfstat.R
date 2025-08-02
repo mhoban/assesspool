@@ -3,10 +3,11 @@
 suppressPackageStartupMessages({
   library(poolfstat)
   library(optparse)
-  library(tibble)
-  library(stringr)
-  library(readr)
-  library(dplyr)
+  # library(tibble)
+  # library(stringr)
+  # library(readr)
+  # library(dplyr)
+  library(data.table)
 })
 
 
@@ -99,33 +100,54 @@ pooldata <- popsync2pooldata(
 fst <- computeFST(pooldata,sliding.window.size=opt$options$window_size)
 
 # get population combo string
-fn <- str_c(pooldata@poolnames,collapse='-')
+# fn <- str_c(pooldata@poolnames,collapse='-')
+fn <- paste0(pooldata@poolnames,collapse='-')
 
 # save global Fst
-global_fst <- tibble(pop1=pooldata@poolnames[1],pop2=pooldata@poolnames[2],fst=fst$Fst[1])
-write_tsv(global_fst,str_glue("{opt$options$prefix}_global_{fn}.tsv"))
+# global_fst <- tibble(pop1=pooldata@poolnames[1],pop2=pooldata@poolnames[2],fst=fst$Fst[1])
+# write_tsv(global_fst,str_glue("{opt$options$prefix}_global_{fn}.tsv"))
+global_fst <- data.table(pop1=pooldata@poolnames[1],pop2=pooldata@poolnames[2],fst=fst$Fst[1])
+fwrite(global_fst,sprintf("%s_global_%s.tsv",opt$options$prefix,fn),sep="\t")
 
 # save sliding window Fst, if they exist
 if (!is.null(fst$sliding.windows.fvalues)) {
-    sliding <- as_tibble(fst$sliding.windows.fvalues) %>%
-        rename(chrom=1,start=2,end=3,mid=4,cum_mid=5,fst=6)
-    write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}_{fn}.tsv"))
+    # sliding <- as_tibble(fst$sliding.windows.fvalues) %>%
+    #     rename(chrom=1,start=2,end=3,mid=4,cum_mid=5,fst=6)
+    # write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}_{fn}.tsv"))
+  sliding <- as.data.table(fst$sliding.windows.fvalues)
+  setnames(sliding,new=c('chrom','start','end','mid','cum_mid','fst'))
+  fwrite(sliding,sprintf("%s_sliding-%d_%s.tsv",opt$options$prefix,opt$options$window_size,fn),sep="\t")
 }
 
-pools <- str_c(str_c(pooldata@poolnames,collapse=':'),".fst")
+# pools <- str_c(str_c(pooldata@poolnames,collapse=':'),".fst")
+pools <- paste0(paste0(pooldata@poolnames,collapse=':'),".fst")
 
 # save per-snp Fst, match popoolation output
-snp_fst <- pooldata@snp.info %>%
-    as_tibble() %>%
-    select(chrom=1,pos=2) %>%
-    mutate(
-      window_size = opt$options$window_size,
-      covered_fraction = 1,
-      # depth = rowSums(pooldata@readcoverage),
-      avg_min_cov = do.call(pmin,as.data.frame(pooldata@readcoverage)),
-      pop1 = opt$options$pool_names[1],
-      pop2 = opt$options$pool_names[2],
-      fst = fst$snp.Fstats$Fst
-    ) %>%
-    select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fst)
-write_tsv(snp_fst,str_glue("{opt$options$prefix}_{fn}.fst"),col_names=opt$options$headers)
+# snp_fst <- pooldata@snp.info %>%
+#     as_tibble() %>%
+#     select(chrom=1,pos=2) %>%
+#     mutate(
+#       window_size = opt$options$window_size,
+#       covered_fraction = 1,
+#       # depth = rowSums(pooldata@readcoverage),
+#       avg_min_cov = do.call(pmin,as.data.frame(pooldata@readcoverage)),
+#       pop1 = opt$options$pool_names[1],
+#       pop2 = opt$options$pool_names[2],
+#       fst = fst$snp.Fstats$Fst
+#     ) %>%
+#     select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fst)
+# write_tsv(snp_fst,str_glue("{opt$options$prefix}_{fn}.fst"),col_names=opt$options$headers)
+
+snp_fst <- as.data.table(pooldata@snp.info)
+cols <- names(snp_fst)
+snp_fst[,cols[-c(1:2)] := NULL]
+setnames(snp_fst,c('chrom','pos'))
+snp_fst[,`:=`(
+  window_size = opt$options$window_size,
+  covered_fraction = 1,
+  avg_min_cov = do.call(pmin,as.data.table(pooldata@readcoverage)),
+  pop1 = opt$options$pool_names[1],
+  pop2 = opt$options$pool_names[2],
+  fst = fst$snp.Fstats$Fst
+)]
+fwrite(snp_fst,sprintf("%s_%s.fst",opt$options$prefix,fn),col.names = opt$options$headers)
