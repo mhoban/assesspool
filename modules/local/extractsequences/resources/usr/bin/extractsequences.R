@@ -3,7 +3,6 @@
 library(optparse)
 library(Rsamtools)
 library(data.table)
-library(stringr)
 
 # help message formatter
 nice_formatter <- function(object) {
@@ -80,13 +79,13 @@ lengths <- seqlengths(fasta)
 # get sites with "strong" fst and create genomic ranges from them
 fst <- fread(opt$args[2])[fst > fst_cutoff, ]
 # group by contig and position, and string together calculation methods that got these high Fst values
-fst <- fst[,.(methods = str_c(unique(method),collapse=',')), by=list(chrom,pos)][order(chrom,pos)]
+fst <- fst[,.(methods = paste0(unique(method),collapse=',')), by=list(chrom,pos)][order(chrom,pos)]
 # group by just contig and make a string that looks like pos1[<methods>];pos2[<methods>];etc.
-fst <- fst[,.(positions = str_c(pos,"[",methods,"]",collapse=";")), by = chrom]
+fst <- fst[,.(positions = paste0(pos,"[",methods,"]",collapse=";")), by = chrom]
 # pull in sequence lengths and make a 'name' column that's positions=<pos from before>
-fst[, `:=`(len = lengths[chrom],name=str_c(chrom,' positions=',positions))]
+fst[, `:=`(len = lengths[chrom],name=paste0(chrom,' positions=',positions))]
 # create range column
-fst[,range := str_c(chrom,':1-',len)]
+fst[,range := paste0(chrom,':1-',len)]
 
 # pull sequences from fasta using genomic ranges
 ranges <- GRanges(fst$range)

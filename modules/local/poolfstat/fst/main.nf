@@ -3,9 +3,10 @@ process POOLFSTAT_FST {
     label 'process_medium_low'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0':
-        'biocontainers/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0' }"
+    container 'fishbotherer/poolfstat:1.0.2'
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    //     'https://depot.galaxyproject.org/singularity/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0':
+    //     'biocontainers/mulled-v2-5d425a6e26ab032a4dcba5bc997f43ab9299830a:a1958d454debf3df6f397d04d5f094df68682ef9-0' }"
 
     input:
     tuple val(meta), val(pool_map), path(sync)

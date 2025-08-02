@@ -7,7 +7,7 @@
 # suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(optparse))
-suppressPackageStartupMessages(library(matrixStats))
+# suppressPackageStartupMessages(library(matrixStats))
 
 # options(dplyr.summarise.inform = FALSE)
 
@@ -60,12 +60,12 @@ gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
 
 
 pval_callback <- function(opt, flag, val, parser, ...) {
-  val <- char.expand(val,c("multiply","geometric-mean"))
-  switch(
-    val,
-    'multiply' = prod,
-    'geometric-mean' = gm_mean
-  )
+  char.expand(val,c("multiply","geometric-mean"))
+  # switch(
+  #   val,
+  #   'multiply' = prod,
+  #   'geometric-mean' = gm_mean
+  # )
 }
 
 expand_callback <- function(opt, flag, val, parser, args, ...) {
@@ -92,7 +92,7 @@ option_list <- list(
   make_option(c("-C", "--min-count"), action="store", default=2, type='double', help="Minimum Minimal allowed read count per base"),
   make_option(c("-c", "--min-coverage"), action="store", default=0, type='double', help="Minimum coverage per pool"),
   make_option(c("-x", "--max-coverage"), action="store", default=1e03, type='double', help="Maximum coverage per pool"),
-  make_option(c("-a", "--pval-aggregate"), action="callback", default=prod, type='character', help="P-value aggregation method",callback=pval_callback),
+  make_option(c("-a", "--pval-aggregate"), action="callback", default='multiply', type='character', help="P-value aggregation method",callback=pval_callback),
   make_option(c("-A", "--all-snps"), action="store_true", default=FALSE, type='logical', help="Save fisher test results for all SNPs, regardless of window size"),
   make_option(c("-j", "--adjust-pval"), action="store_true", default=FALSE, type='logical', help="Adjust p-value for multiple comparisons"),
   make_option(c("-J", "--adjust-method"), action="store", default="bonferroni", type='character', help="P-value adjustment method"),
@@ -137,7 +137,11 @@ threads       <- opt$options$threads
 thread_lines  <- opt$options$lines_per_thread
 file_prefix   <- opt$options$prefix
 outdir        <- opt$options$output_dir
-p_combine     <- opt$options$pval_aggregate
+p_combine     <- switch(
+  opt$options$pval_aggregate,
+  'multiply' = prod,
+  'geometric-mean' = gm_mean
+)
 save_all      <- opt$options$all_snps
 adjust_p      <- opt$options$adjust_pval
 adjust_method <- opt$options$adjust_method

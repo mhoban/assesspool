@@ -4,16 +4,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - conda-forge::gmp=6.2.1
-  - conda-forge::pandoc=2.19.2
-  - conda-forge::r-optparse=1.7.3
-  - conda-forge::r-dplyr=1.0.10
-  - conda-forge::r-plyr=1.8.7
-  - conda-forge::r-stringr=1.4.1
-  - conda-forge::r-data.table=1.14.4
-  - conda-forge::r-plotly=4.10.0
-  - bioconda::r-seqinr=4.2_16
-  - bioconda::bioconductor-rsamtools=2.10.0
-  - bioconda::bioconductor-shortread=1.52.0
-  - bioconda::bioconductor-genomicalignments=1.30.0
-  - bioconda::bioconductor-biomart=2.50.0
+  - conda-forge::r-optparse=1.7.5
+  - conda-forge::r-data.table=1.17.8
+  - bioconda::bioconductor-rsamtools=2.22.0
