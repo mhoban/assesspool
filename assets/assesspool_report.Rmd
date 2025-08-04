@@ -609,8 +609,8 @@ nothing <- pool_data[,{
             n_contigs <- uniqueN(.SD$chrom,na.rm=TRUE)
             .(
               fst_sd = fst_sd,                 # std. dev. of fst
-              q1 = as.numeric(quantile(fst)[2]),
-              q3 = as.numeric(quantile(fst)[4]),
+              q1 = as.numeric(quantile(fst,na.rm=TRUE)[2]),
+              q3 = as.numeric(quantile(fst,na.rm=TRUE)[4]),
               lwr = boxplot.stats(fst)$stats[1],
               upr = boxplot.stats(fst)$stats[5],
               med = median(fst),
