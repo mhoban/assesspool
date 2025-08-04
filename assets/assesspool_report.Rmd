@@ -205,7 +205,10 @@ if (show_final_filter) {
 any_filter <- show_filter | show_final_filter
 
 # used for tab selection
-pools_shared <- c('All SNPs'=FALSE,'Shared loci (all pools)'=TRUE)
+pools_shared <- c(
+  'All SNPs'=FALSE,
+  'SNPs shared by all pools'=TRUE
+)
 
 ```
 
