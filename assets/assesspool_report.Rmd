@@ -342,16 +342,16 @@ nothing <- pool_data[,{
         rbindlist()
 
       fst_cov <- fst_cov[,{
-        fst_sd <- sd(fst)
+        fst_sd <- sd(fst,na.rm=TRUE)
         fst_se <- fst_sd / sqrt(.N)
         n_snps <- uniqueN(.SD[,.(chrom,pos)],na.rm=TRUE)
         n_contigs <- uniqueN(.SD$chrom,na.rm=TRUE)
-        fst_mean <- mean(fst)
+        fst_mean <- mean(fst,na.rm=TRUE)
         .(
           fst_sd = fst_sd,                 
           fst = fst_mean,
           fst_se = fst_se,
-          cov = mean(avg_min_cov),
+          cov = mean(avg_min_cov,na.rm=TRUE),
           snps = n_snps, # snp count
           contigs = n_contigs,
           snps_per_contig = n_snps / n_contigs,
@@ -604,7 +604,7 @@ nothing <- pool_data[,{
           # precompute box plot stats because the datasets are too big
           # and pandoc runs out of memory
           fst_grp <- fst_data[avg_min_cov >= cutoff][,{
-            fst_sd <- sd(fst)
+            fst_sd <- sd(fst,na.rm=TRUE)
             n_snps <- uniqueN(.SD[,.(chrom,pos)],na.rm=TRUE)
             n_contigs <- uniqueN(.SD$chrom,na.rm=TRUE)
             .(
@@ -613,12 +613,12 @@ nothing <- pool_data[,{
               q3 = as.numeric(quantile(fst,na.rm=TRUE)[4]),
               lwr = boxplot.stats(fst)$stats[1],
               upr = boxplot.stats(fst)$stats[5],
-              med = median(fst),
-              min = min(fst),
-              max = max(fst),
+              med = median(fst,na.rm=TRUE),
+              min = min(fst,na.rm=TRUE),
+              max = max(fst,na.rm=TRUE),
               fst_se = fst_sd / sqrt(.N),      # std. err. of fst
-              fst = mean(fst),                  # mean fst
-              cov = mean(avg_min_cov),          # mean coverage
+              fst = mean(fst,na.rm=TRUE),                  # mean fst
+              cov = mean(avg_min_cov,na.rm=TRUE),          # mean coverage
               snps = n_snps, # snp count
               contigs = n_contigs,  # contig count
               snps_per_contig = n_snps / n_contigs         # mean snps per contig
@@ -871,7 +871,7 @@ nothing <- pool_data[,{
                   fst_sd = fst_sd,                 # std. dev. of fst
                   fst_se = fst_sd / sqrt(.N),      # std. err. of fst
                   fst = mean(fst,na.rm=TRUE),                  # mean fst
-                  cov = mean(avg_min_cov),          # mean coverage
+                  cov = mean(avg_min_cov,na.rm=TRUE),          # mean coverage
                   cov_sd = cov_sd,
                   cov_se = cov_sd / sqrt(.N),
                   snps = n_snps, # snp count
@@ -1169,7 +1169,7 @@ nothing <- fisher_data[,{
     map(\(cov) {
       
       # filter by coverage cutoff and get mean fisher p-value by snp
-      figdata <- fishr[avg_min_cov >= cov][,.(log_fisher = mean(log_fisher)), by=.(chrom,pos)][order(chrom,pos)] 
+      figdata <- fishr[avg_min_cov >= cov][,.(log_fisher = mean(log_fisher,na.rm=TRUE)), by=.(chrom,pos)][order(chrom,pos)] 
       figdata[,snp := .I]
       
       fig <- ggplot(figdata) +
