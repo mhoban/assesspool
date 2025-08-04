@@ -332,7 +332,7 @@ if (window_type != 'single') {
     window_size = 1,
     pop1 = pools[1],
     pop2 = pools[2],
-    fisher = pval
+    fisher = -log10(pval)
   )]
 }
 

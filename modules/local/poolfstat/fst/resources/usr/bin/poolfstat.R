@@ -114,9 +114,9 @@ if (!is.null(fst$sliding.windows.fvalues)) {
     # sliding <- as_tibble(fst$sliding.windows.fvalues) %>%
     #     rename(chrom=1,start=2,end=3,mid=4,cum_mid=5,fst=6)
     # write_tsv(sliding,str_glue("{opt$options$prefix}_sliding-{opt$options$window_size}_{fn}.tsv"))
-  sliding <- as.data.table(fst$sliding.windows.fvalues)
-  setnames(sliding,new=c('chrom','start','end','mid','cum_mid','fst'))
-  fwrite(sliding,sprintf("%s_sliding-%d_%s.tsv",opt$options$prefix,opt$options$window_size,fn),sep="\t")
+  setDT(fst$sliding.windows.fvalues)
+  setnames(fst$sliding.windows.fvalues,new=c('chrom','start','end','mid','cum_mid','fst'))
+  fwrite(fst$sliding.windows.fvalues,sprintf("%s_sliding-%d_%s.tsv",opt$options$prefix,opt$options$window_size,fn),sep="\t")
 }
 
 # pools <- str_c(str_c(pooldata@poolnames,collapse=':'),".fst")
@@ -138,11 +138,11 @@ pools <- paste0(paste0(pooldata@poolnames,collapse=':'),".fst")
 #     select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fst)
 # write_tsv(snp_fst,str_glue("{opt$options$prefix}_{fn}.fst"),col_names=opt$options$headers)
 
-snp_fst <- as.data.table(pooldata@snp.info)
-cols <- names(snp_fst)
-snp_fst[,cols[-c(1:2)] := NULL]
-setnames(snp_fst,c('chrom','pos'))
-snp_fst[,`:=`(
+setDT(pooldata@snp.info)
+cols <- names(pooldata@snp.info)
+pooldata@snp.info[,cols[-c(1:2)] := NULL]
+setnames(pooldata@snp.info,c('chrom','pos'))
+pooldata@snp.info[,`:=`(
   window_size = opt$options$window_size,
   covered_fraction = 1,
   avg_min_cov = do.call(pmin,as.data.table(pooldata@readcoverage)),
@@ -150,4 +150,4 @@ snp_fst[,`:=`(
   pop2 = opt$options$pool_names[2],
   fst = fst$snp.Fstats$Fst
 )]
-fwrite(snp_fst,sprintf("%s_%s.fst",opt$options$prefix,fn),col.names = opt$options$headers)
+fwrite(pooldata@snp.info,sprintf("%s_%s.fst",opt$options$prefix,fn),col.names = opt$options$headers)
