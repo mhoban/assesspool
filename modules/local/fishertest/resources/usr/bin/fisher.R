@@ -1,16 +1,7 @@
 #!/usr/bin/env Rscript
 
-# suppressPackageStartupMessages(library(dplyr))
-# suppressPackageStartupMessages(library(tidyr))
-# suppressPackageStartupMessages(library(readr))
-# suppressPackageStartupMessages(library(janitor))
-# suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(optparse))
-# suppressPackageStartupMessages(library(matrixStats))
-
-# options(dplyr.summarise.inform = FALSE)
-
 
 # help message formatter
 nice_formatter <- function(object) {
@@ -61,11 +52,6 @@ gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
 
 pval_callback <- function(opt, flag, val, parser, ...) {
   char.expand(val,c("multiply","geometric-mean"))
-  # switch(
-  #   val,
-  #   'multiply' = prod,
-  #   'geometric-mean' = gm_mean
-  # )
 }
 
 expand_callback <- function(opt, flag, val, parser, args, ...) {
@@ -163,24 +149,12 @@ if (!file.exists(opt$args[1])) {
   stop(sprintf("Frequency file %s does not exist.",opt$args[1]))
 }
 
-# filter frequency table down to just what we'd consider snps
-# this filtering should match popoolation/poolfst
-
-# split(ceiling(seq_along(.)/50)) %>%
-
-# freq_snps <- read_tsv(opt$args[1],col_types = cols(),progress = FALSE)
 freq_snps <- fread(opt$args[1])
 
 if (all(is.na(pools))) {
   pools <- melt(freq_snps[1], measure = measure(pool,measure,pattern = r'[^(.+)\.(REF_CNT)$]'),value.name = 'count')[
     pool != 'TOTAL'
   ][order(pool)]$pool
-  # pools <- freq_snps %>%
-  #   slice(1) %>%
-  #   pivot_longer(-c(CHROM:ALT,starts_with("TOTAL",ignore.case = FALSE)),names_to = c("pool","measure"),values_to="count",names_pattern = "^(.+)\\.([^.]+)$") %>%
-  #   pull(pool) %>%
-  #   sort() %>%
-  #   unique()
 }
 
 # make sure we're dealing with two pools
@@ -194,29 +168,6 @@ cols <- names(freq_snps)
 pr <- paste0('^(',paste0(pools,collapse='|'),')')
 
 # continue filtering
-# freq_snps <- freq_snps %>%
-#   select(CHROM:ALT,starts_with(paste0(pools,"."),ignore.case = FALSE)) %>%
-#   mutate(
-#     `TOTAL.REF_CNT` = rowSums(pick(ends_with(".REF_CNT",ignore.case = FALSE))),
-#     `TOTAL.ALT_CNT` = rowSums(pick(ends_with(".ALT_CNT",ignore.case = FALSE))),
-#     `TOTAL.DEPTH` = rowSums(pick(ends_with(".DEPTH",ignore.case = FALSE))),
-#   ) %>%
-#   mutate(
-#     lwr = floor((POS-1)/window_step)*window_step+1,
-#     upr = lwr+window_size-1,
-#     middle=floor((upr+lwr)/2)
-#   ) %>%
-#   filter( if_all(ends_with(".DEPTH"),~.x >= min_depth) ) %>%
-#   add_count(CHROM,middle,name="snp_count") %>%
-#   rename_with(make_clean_names,.cols = starts_with("TOTAL.",ignore.case = FALSE)) %>%
-#   filter(
-#     if_all(starts_with("total_",ignore.case = FALSE) & ends_with("_cnt",ignore.case = FALSE),~.x >= min_count),
-#     total_ref_cnt != total_depth,
-#     total_depth >= min_depth
-#   ) %>%
-#   rename_with(CHROM:ALT,.fn=make_clean_names) %>%
-#   select(chrom,pos,middle,ref:alt,ends_with(".REF_CNT"),ends_with(".ALT_CNT"),starts_with("total_"),everything())
-
 # try to do as much data.table stuff in-place (using `:=`) as possible to increase memory efficiency
 
 # first, delete columns we don't care about
@@ -248,25 +199,6 @@ cols <- names(freq_snps)
 mv <- c(cols[1:3],'snp_count','start','end',grep(r'[\.DEPTH$]',cols,value=TRUE),grep(r'[_CNT$]',cols,value=TRUE))
 setcolorder(freq_snps,mv)
 
-# fisher_results <- freq_snps %>%
-#   select(order(colnames(.))) %>%
-#   select(
-#     chrom, pos, middle, snp_count,start=lwr,end=upr,
-#     ends_with(".DEPTH",ignore.case = FALSE),
-#     ends_with(".REF_CNT",ignore.case = FALSE),
-#     ends_with(".ALT_CNT",ignore.case = FALSE)
-#   ) %>%
-#   pivot_longer(
-#     -c(chrom,pos,middle,snp_count,start,end,ends_with(".DEPTH",ignore.case = FALSE)),
-#     names_to = c("pop","measure"),
-#     values_to = "count",
-#     names_pattern = "^(.+)\\.([^.]+)$"
-#   ) %>%
-#   group_by(chrom,pos,middle,start,end,snp_count,across(ends_with(".DEPTH",ignore.case = FALSE))) %>%
-#   summarise(pval = fisher.test(matrix(count,ncol=2))$p.value) %>%
-#   ungroup() %>%
-#   mutate(min_cov = matrixStats::rowMins(as.matrix(pick(ends_with(".DEPTH",ignore.case = FALSE)))))
-
 # calculate fisher results
 
 # reshape frequency data and order ref and alt counts appropriately
@@ -280,8 +212,6 @@ fisher_results[,avg_min_cov := do.call(pmin,.SD),.SDcols = patterns(r'[\.DEPTH$]
 
 if (adjust_p) {
   fisher_results[, pval := p.adjust(pval,method=adjust_method)]
-  # fisher_results <- fisher_results %>%
-  #   mutate(p_adj = p.adjust(pval,method=adjust_method))
 }
 
 
@@ -295,25 +225,13 @@ if (save_all & window_size > 1) {
     covered_fraction = 1,
     start=pos,
     end=pos
-  )] 
-  
+  )]
+
   fwrite(
       fisher_results[,c('chrom','pos','covered_fraction','avg_min_cov','pop1','pop2','fisher'),with=FALSE],
       file = ss,
       sep="\t"
     )
-  # fisher_results %>%
-  #   mutate(
-  #     fisher = -log10(pval),
-  #     pop1 = pools[1],
-  #     pop2 = pools[2],
-  #     window_size = 1,
-  #     covered_fraction = 1,
-  #     start=pos,
-  #     end=pos,
-  #   ) %>%
-  #   select(chrom,pos,snps,covered_fraction,avg_min_cov = min_cov,pop1,pop2,fisher) %>%
-  #   write_tsv(ss)
 }
 
 if (window_type != 'single') {
@@ -343,23 +261,5 @@ fisher_results[,cols[-cn] := NULL]
 setcolorder(fisher_results,c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','fisher','method'))
 
 
-# fisher_results <- fisher_results %>%
-#   group_by(chrom,middle,start,end,snp_count) %>%
-#   summarise(
-#     fisher = -log10(p_combine(pval)),
-#     pop1 = pools[1],
-#     pop2 = pools[2],
-#     window_size = n(),
-#     covered_fraction = unique(snp_count)/window_size,
-#     avg_min_cov = mean(min_cov)
-#   ) %>%
-#   ungroup() %>%
-#   mutate(
-#     pos = floor((start+end)/2),
-#     method = 'assesspool'
-#   ) %>%
-#   select(chrom,pos,window_size,covered_fraction,avg_min_cov,pop1,pop2,fisher,method)
-
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)
 fwrite(fisher_results,ss,sep="\t")
-# write_tsv(fisher_results,ss)
