@@ -218,7 +218,7 @@ if (adjust_p) {
 if (save_all & window_size > 1) {
   ss <- sprintf("%s/%s_%s_all_snps_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"))
   fisher_results[,`:=`(
-    fisher = -log10(pval),
+    log_fisher = -log10(pval),
     pop1 = pools[1],
     pop2 = pools[2],
     window_size = 1,
@@ -236,7 +236,7 @@ if (save_all & window_size > 1) {
 
 if (window_type != 'single') {
   fisher_results <- fisher_results[,.(
-    fisher = -log10(p_combine(pval)),
+    log_fisher = -log10(p_combine(pval)),
     pop1 = pools[1],
     pop2 = pools[2],
     window_size = .N,
@@ -250,15 +250,15 @@ if (window_type != 'single') {
     window_size = 1,
     pop1 = pools[1],
     pop2 = pools[2],
-    fisher = -log10(pval)
+    log_fisher = -log10(pval)
   )]
 }
 
 fisher_results[,method := 'assesspool']
 cols <- names(fisher_results)
-cn <- which(cols %in% c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','fisher','method'))
+cn <- which(cols %in% c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','log_fisher','method'))
 fisher_results[,cols[-cn] := NULL]
-setcolorder(fisher_results,c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','fisher','method'))
+setcolorder(fisher_results,c('chrom','pos','window_size','covered_fraction','avg_min_cov','pop1','pop2','log_fisher','method'))
 
 
 ss <- sprintf("%s/%s_%s_window_%d_%d_fisher.tsv",outdir,file_prefix,paste0(pools,collapse="-"),window_size,window_step)
