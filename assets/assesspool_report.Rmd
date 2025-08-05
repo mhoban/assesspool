@@ -168,6 +168,10 @@ show_fst <- !is.null(params$fst)
 if (show_fst) {
   pool_data <- fread(params$fst)
   pool_data[,pair := paste0(pop1," - ",pop2)]
+  pool_data[,`:=`(
+    pop1 = factor(pop1),
+    pop2 = factor(pop2)
+  )]
   setorder(pool_data,method,chrom,pos)
 } else {
   pool_data <- FALSE
@@ -179,8 +183,8 @@ fisher_data <- NULL
 show_fisher <- !is.null(params$fisher)
 if (show_fisher) {
   fisher_data <- fread(params$fisher)
-  fisher_data[,c(names(fisher_data)[!names(fisher_data) %in% c('chrom','pos','pop1','pop2','avg_min_cov','fisher','method')]) := NULL]
-  setnames(fisher_data,'fisher','log_fisher')
+  fisher_data[,c(names(fisher_data)[!names(fisher_data) %in% c('chrom','pos','pop1','pop2','avg_min_cov','log_fisher','method')]) := NULL]
+  # setnames(fisher_data,'fisher','log_fisher')
   setcolorder(fisher_data,c('chrom','pos','pop1','pop2','avg_min_cov','log_fisher','method'))
   setorder(fisher_data,method,chrom,pos)
 }
