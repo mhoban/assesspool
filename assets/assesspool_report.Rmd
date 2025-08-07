@@ -11,8 +11,8 @@ output:
     df_print: paged         # tables are printed as an html table with support for pagination over rows and columns
     highlight: pygments
     pdf_document: true
-  pdf_document:
-    toc: yes
+    self_contained: false
+    lib_dir: artifacts
 date: "`r Sys.Date()`"
 params:
   nf: null
@@ -42,8 +42,9 @@ we're not doing multiple large data-access processes
 
 <script>
 // update any visible figures that were set to a different coverage cutoff
-function update_figures(parent,value) {
+function update_figures(parent,value,tab_change) {
   $(parent).find('.fig-container:visible').each(function() {
+    // update plotly figures
     if ($(this).data('cutoff') != value) {
       const fig_id = $(this).data('fig');
       const json_prefix = $(this).data('json-prefix');
@@ -54,6 +55,17 @@ function update_figures(parent,value) {
       $(this).data('cutoff',value);
     }
   });
+  
+  // update fisher plots
+  var fc = $('.fisher-container:visible');
+  if (fc.data('cutoff') != value) {
+    var vis = fc.find('.visible-fisher');
+    var hid = fc.find('.hidden-fisher');
+    vis.find('.fisher-plotz').detach().appendTo(hid);
+    hid.find(`.fisher-plotz-${value}`).detach().appendTo(vis).show();
+    
+    fc.data('cutoff',value);
+  }
 }
 
 // setup
@@ -68,7 +80,7 @@ $(function() {
     tickInterval: `r params$nf$coverage_cutoff_step`,
     slide: function (e,ui) {
       $('.coverage-label').html(`Coverage cutoff: &#x2265;${ui.value}`)
-      update_figures(document,ui.value);
+      update_figures(document,ui.value,false);
     }
   });
 
@@ -78,7 +90,7 @@ $(function() {
   $(document).on('shown.bs.tab', function (e) {
     var target = $(e.target.ariaControlsElements);
     var val = $("#coverage-slider").labeledslider('value');
-    update_figures(target,val);
+    update_figures(target,val,true);
   });
 
 });
@@ -315,19 +327,16 @@ c(show_filter,show_final_filter) %>%
   })
 ```
 
-```{r summaries, summaries, results='asis', eval=show_fst}
+
+```{r summaries, results='asis', eval=show_fst}
 cat("# High-level summaries {.tabset}\n\n")
 
-# walk through data by method
 nothing <- pool_data[,{
-  # output tab header
   fst_data <- .SD
   cat(str_glue("## {method} {{.tabset}}\n\n"))
 
-  # walk through whether or not we're looking only at snps shared across all pools
   pools_shared %>%
     iwalk(\(shared,hdr) {
-      # output tab header
       cat(str_glue("### {hdr} {{.tabset}}\n\n"))
 
       # filter data for all pools if necessary
@@ -336,87 +345,73 @@ nothing <- pool_data[,{
         setorder(fst_data,chrom,pos,pop1,pop2)
       }
 
-      # repeatedly filter the dataset for different coverage levels
-      # and bind those together into a new dataset
       fst_cov <- cutoffs %>%
-        map(\(cov) {
-          fst_data[avg_min_cov >= cov][,cutoff := cov]
+        map(\(cutoff) {
+          fst_data[avg_min_cov >= cutoff][,cutoff := cutoff][,{
+            fst_sd <- sd(fst,na.rm=TRUE)
+            fst_se <- fst_sd / sqrt(.N)
+            n_snps <- uniqueN(.SD[,.(chrom,pos)],na.rm=TRUE)
+            n_contigs <- uniqueN(.SD$chrom,na.rm=TRUE)
+            fst_mean <- mean(fst,na.rm=TRUE)
+            .(
+              fst = fst_mean,
+              fst_sd = fst_sd,                 
+              snps = n_snps, # snp count
+              contigs = n_contigs,
+              snps_per_contig = n_snps / n_contigs
+            )
+          },by=cutoff]
         }) %>%
-        # and bind resulting subsets together into a superset
         rbindlist()
-
-      fst_cov <- fst_cov[,{
-        fst_sd <- sd(fst,na.rm=TRUE)
-        fst_se <- fst_sd / sqrt(.N)
-        n_snps <- uniqueN(.SD[,.(chrom,pos)],na.rm=TRUE)
-        n_contigs <- uniqueN(.SD$chrom,na.rm=TRUE)
-        fst_mean <- mean(fst,na.rm=TRUE)
-        .(
-          fst_sd = fst_sd,                 
-          fst = fst_mean,
-          fst_se = fst_se,
-          cov = mean(avg_min_cov,na.rm=TRUE),
-          snps = n_snps, # snp count
-          contigs = n_contigs,
-          snps_per_contig = n_snps / n_contigs,
-          ci_lower= fst_mean - qt(0.975, .N -1) * fst_se,
-          ci_upper= fst_mean + qt(0.975, .N -1) * fst_se
-        )
-      },by=cutoff]
       setorder(fst_cov,cutoff)
-      setcolorder(fst_cov,c('cutoff','fst','fst_sd','fst_se','cov','snps','snps_per_contig','ci_lower','ci_upper'))
+      setcolorder(fst_cov,c('cutoff','fst','fst_sd','snps','contigs','snps_per_contig'))
       setnames( fst_cov,
-        c('cutoff','fst','fst_sd','fst_se','cov','snps','contigs','snps_per_contig','ci_lower','ci_upper'),
-        c('Coverage cutoff', 'Mean F<sub>st</sub>', 'F<sub>st</sub> (SD)', 'F<sub>st</sub> (SEM)',
-          'Mean coverage', 'SNPs', 'Contigs', 'SNPs per contig', 'CI (lower)', 'CI (upper)')
+        c('cutoff','fst','fst_sd','snps','contigs','snps_per_contig'),
+        c('Coverage cutoff', 'Mean F<sub>st</sub>', 'F<sub>st</sub> (SD)', 'SNPs', 'Contigs', 'SNPs per contig')
       )
-
-      # show plot tab
+      
       cat(str_glue("#### Plot\n\n"))
-
       print(h5("Global summary statistics by coverage cutoff"))
-
-      # create interactive plot and add traces
+      
       fig <- fst_cov %>%
         plot_ly() %>%
         add_trace(
-          y = ~ `Mean F<sub>st</sub>`,
+          name = 'Mean F<sub>st</sub>',
+          type = 'scatter',
+          mode = 'lines+markers',
+          visible=TRUE,
           x = ~`Coverage cutoff`,
-          name = "Mean F<sub>st</sub>",
-          visible = T,
-          mode = "lines+markers",
-          type = "scatter",
+          y = ~`Mean F<sub>st</sub>`,
           error_y = ~list(
             type='data',
             array = `F<sub>st</sub> (SD)`
-          )
+          ) 
         ) %>%
         add_trace(
-          y = ~SNPs,
+          name = 'SNPs',
+          type = 'scatter',
+          mode = 'lines+markers',
+          visible=FALSE,
           x = ~`Coverage cutoff`,
-          name = "SNPs",
-          mode = "lines+markers",
-          type = "scatter",
-          visible=F
+          y = ~`SNPs`
         ) %>%
         add_trace(
-          y = ~`SNPs per contig`,
+          name = 'SNPs per contig',
+          type = 'scatter',
+          mode = 'lines+markers',
+          visible=FALSE,
           x = ~`Coverage cutoff`,
-          name = "Mean SNPs per contig",
-          visible = F,
-          mode = "lines+markers",
-          type = "scatter"
+          y = ~`SNPs per contig`
         ) %>%
         add_trace(
-          y = ~Contigs,
+          name = 'Contigs',
+          type = 'scatter',
+          mode = 'lines+markers',
+          visible=FALSE,
           x = ~`Coverage cutoff`,
-          name = "Contigs",
-          visible = F,
-          mode = "lines+markers",
-          type = "scatter"
-        )
-
-      # configure button layout and behavior
+          y = ~`Contigs`
+        ) 
+      
       button_layout <- list(
         type = "buttons",
         direction = "right",
@@ -483,7 +478,7 @@ nothing <- pool_data[,{
           )
         )
       )
-
+      
       # configure annotation properties
       annotation <- list(
         list(
@@ -495,7 +490,7 @@ nothing <- pool_data[,{
           showarrow = FALSE
         )
       )
-
+      
       # add layout and annotation to figure
       fig <- fig %>%
         layout(
@@ -508,16 +503,16 @@ nothing <- pool_data[,{
         ) %>%
         config(displayModeBar = FALSE)
 
-      # display figure
+      # display figure 
       print(tagList(fig))
-
+      
       # show data table tab
       cat(str_glue("#### Table\n\n"))
       
       # construct csv download filename
       shared <- ifelse(shared,"all","shared")
       filename <- str_glue("{method}_{shared}_summary")
-
+      
       # a javascript callback that rounds numbers to the
       # nearest thousand. otherwise the table is full of stuff like 0.3412341234123412341234
       js <- DT::JS(
@@ -527,9 +522,9 @@ nothing <- pool_data[,{
         "data;",
         "}"
       )
-
+      
       print(h5("Global summary statistics by coverage cutoff"))
-
+      
       # output the datatable
       print(
         tagList(
@@ -553,20 +548,21 @@ nothing <- pool_data[,{
               scrollX = TRUE,
               columnDefs = list(
                 list(
-                  targets = c(2:5,8:10)-1,
+                  targets = c(2:3)-1,
                   render = js
                 )
               )
             )
           ) %>%
-            formatRound(c(1,6,7),digits=0)
+            formatRound(c(1,4:6),digits=0)
         )
       )
+      
+      
     })
+  
 },by=method]
-
 ```
-
 
 
 ```{r fst-cov-all, results='asis', eval=show_fst}
@@ -959,13 +955,13 @@ nothing <- pool_data[,{
                             y = ~.data[[v[2]]],
                             z = ~.data[[v[3]]],
                             colorscale = 'Greys',
-                            showscale = FALSE 
+                            showscale = FALSE
                           )
                         } else .
                       } %>%
                       add_trace(
                         type = "heatmap",
-                        data = hmd, 
+                        data = hmd,
                         x = ~.data[[v[1]]], # x variable
                         y = ~.data[[v[2]]], # y variable
                         z = ~.data[[v[3]]], # z (color) variable
@@ -1065,17 +1061,17 @@ methods %>%
       pool_data[ method == methods[2] ],
       by = c('chrom','pos','pop1','pop2')
     )
-
+    
     # do a linear regression
     lmm <- lm(fst.y ~ fst.x, data=corr)
-
+    
     # get predicted data for the trend line
     corr[,predicted := predict(lmm,corr[,.(fst.x)])]
-
+    
     # get method names
     xtitle <- methods[1]
     ytitle <- methods[2]
-
+    
     # plot the figure
     fig <- corr %>%
       plot_ly() %>%
@@ -1110,13 +1106,13 @@ methods %>%
       ) %>%
       # disappear the legends
       hide_guides()
-
+    
     print(tagList(fig))
   })
 ```
 
 ```{r fisher, results='asis', eval=show_fisher}
-cat("# Fisher test plots {.tabset}\n\n")
+cat("# Fisher's test plots {.tabset .fisher-tabs}\n\n")
 print(h5(tags$small(
   "Fisher test results are presented as static plots since these datasets can get huge, making plotly go slow or crash."
 )))
@@ -1125,47 +1121,6 @@ nothing <- fisher_data[,{
   fishr <- .SD
   cat(str_glue("## {method}\n\n"))
   
-  # TODO: fix cutoff slider for fisher plots
-  # make slider for coverage cutoff
-  cutoff_slider <- div(
-    class="coverage-slider",
-    tagList(
-      tags$label(
-        id=str_glue("fisher-cutoff-label-{method}"),
-        `for`=str_glue("fisher-cutoff-sel-{method}"),
-        str_glue('Minimum coverage: {params$nf$min_coverage_cutoff}')
-      ),
-      div(
-        id=str_glue("fisher-cutoff-sel-{method}")
-      )
-    )
-  )
-  print(cutoff_slider)
-  
-  cutoff_script <- tags$script(HTML(str_glue(
-    '
-      $(function() {{
-        $("#fisher-cutoff-sel-{method}").labeledslider({{
-          min: {params$nf$min_coverage_cutoff},
-          max: {params$nf$max_coverage_cutoff},
-          step: {params$nf$coverage_cutoff_step},
-          tickInterval: {params$nf$coverage_cutoff_step},
-          change: function (e, ui) {{
-            $(".fisher-plotz-{method}").hide();
-            $(`#fisher-plot-{method}-${{ui.value}}`).show();
-            $("#fisher-cutoff-label-{method}").text(`Minimum coverage: ${{ui.value}}`);
-          }},
-          slide: function (e, ui) {{
-            $(".fisher-plotz-{method}").hide();
-            $(`#fisher-plot-{method}-${{ui.value}}`).show();
-            $("#fisher-cutoff-label-{method}").text(`Minimum coverage: ${{ui.value}}`);
-          }}
-        }});
-     }});
-    '
-  )))
-  print(cutoff_script)
-  
   print(h6(HTML("Points above red line indicate <em>p</em> &lt; 0.05.")))
   
   figs <- cutoffs %>%
@@ -1173,7 +1128,7 @@ nothing <- fisher_data[,{
     map(\(cov) {
       
       # filter by coverage cutoff and get mean fisher p-value by snp
-      figdata <- fishr[avg_min_cov >= cov][,.(log_fisher = mean(log_fisher,na.rm=TRUE)), by=.(chrom,pos)][order(chrom,pos)] 
+      figdata <- fishr[avg_min_cov >= cov][,.(log_fisher = mean(log_fisher,na.rm=TRUE)), by=.(chrom,pos)][order(chrom,pos)]
       figdata[,snp := .I]
       
       fig <- ggplot(figdata) +
@@ -1186,17 +1141,35 @@ nothing <- fisher_data[,{
       plotTag(
         fig,
         alt=str_glue("Fisher's exast test p-values for coverage ≥{cov}"),
+        device = 'svg',
         width = 672,
         attribs = list(
+          `data-method` = method,
+          `data-cutoff` = cov,
           id = str_glue("fisher-plot-{method}-{cov}"),
-          class = str_glue('fisher-plotz-{method}'),
+          class = c(str_glue('fisher-plotz'),str_glue('fisher-plotz-{cov}')),
           style = disp
         )
       )
     })
-  print(div(
-    id='fisher-container',
-    tagList( figs )
-  ))
+  
+  # for some reason enclosing this in another div()
+  # call makes the image tags show as text
+  cat('<div class="fisher-container">')
+  print(
+    tagList(
+      div(
+        class = 'visible-fisher',
+        tagList(figs[1])
+      ),
+      div(
+        class = 'hidden-fisher',
+        style = 'display: none',
+        tagList(figs[-1])
+      )
+    )
+  )
+  cat('</div>')
+  
 },by=method]
 ```

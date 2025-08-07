@@ -33,12 +33,8 @@ process JOINFREQ {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tidyr: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
         optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 
@@ -51,12 +47,8 @@ process JOINFREQ {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tidyr: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
         optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 }

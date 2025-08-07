@@ -7,10 +7,10 @@ include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_assesspool_pipeline'
 include { FILTER                 } from '../subworkflows/local/filter.nf'
-include { FILTER_SIM             } from '../subworkflows/local/filter_sim/main.nf'
+include { FILTER_SIM_VCF         } from '../subworkflows/local/filter_sim_vcf/main.nf'
 include { PREPROCESS             } from '../subworkflows/local/preprocess.nf'
 include { POOLSTATS              } from '../subworkflows/local/poolstats.nf'
-include { POSTPROCESS             } from '../subworkflows/local/postprocess.nf'
+include { POSTPROCESS            } from '../subworkflows/local/postprocess.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -24,11 +24,12 @@ workflow ASSESSPOOL {
     ch_samplesheet // channel: samplesheet read in from --input
     main:
 
+
     ch_versions = Channel.empty()
 
     // run VCF preprocessing
     PREPROCESS( ch_samplesheet )
-    ch_vcf = PREPROCESS.out.vcf
+    ch_input = PREPROCESS.out.output
     ch_ref = PREPROCESS.out.ref
     ch_versions = ch_versions.mix(PREPROCESS.out.versions.first())
 
@@ -41,21 +42,21 @@ workflow ASSESSPOOL {
     ch_fisher = Channel.empty()
     ch_filtered = Channel.empty()
 
-    // perform stepwise filtration
-    // for visualization and evaluation
-
-
+    // // perform stepwise filtration
+    // // for visualization and evaluation
     if (params.visualize_filters) {
-        FILTER_SIM( ch_vcf )
-        ch_filter_sim = FILTER_SIM.out.filter_summary
+        FILTER_SIM_VCF( ch_input.filter { meta, f, index -> meta.format == 'vcf' } )
+        ch_filter_sim = FILTER_SIM_VCF.out.filter_summary
     }
+
+    // TODO: add cumulative filtering to the filter_only workflow
 
     // run downstream processing unless we're only
     // visualizing filters
     if (!params.filter_only) {
         // run filtering if desired
-        FILTER( ch_vcf )
-        ch_filtered = FILTER.out.vcf
+        FILTER( ch_input )
+        ch_filtered = FILTER.out.output
         ch_versions = ch_versions.mix(FILTER.out.versions.first())
 
         // calculate pool statistics (fst, fisher, etc.)
@@ -72,7 +73,7 @@ workflow ASSESSPOOL {
     // run post-processing steps
     POSTPROCESS(
         ch_filtered,
-        ch_vcf,
+        ch_input,
         ch_fst,
         ch_ref,
         ch_sync,

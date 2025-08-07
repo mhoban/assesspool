@@ -19,7 +19,7 @@ include { RIPGREP as COUNT_SNPS                      } from '../../../modules/nf
 
 include { BCFTOOLS_VIEW as BCFTOOLS_COMPRESS_INDEX_FILTERED } from '../../../modules/nf-core/bcftools/view/main'
 
-workflow FILTER_SIM {
+workflow FILTER_SIM_VCF {
 
     take:
     ch_vcf
