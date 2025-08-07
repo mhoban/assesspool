@@ -648,7 +648,7 @@ nothing <- pool_data[,{
               title = list(text=str_glue("F<sub>st</sub> - {hdr} (coverage &#x2265;{cutoff})"), y=0.95, font=list(size=12))
             ) %>%
             config(toImageButtonOptions = list(
-              format = "svg",
+              format = 'svg',
               width = 900,
               height = 600
             ))
@@ -1141,7 +1141,6 @@ nothing <- fisher_data[,{
       plotTag(
         fig,
         alt=str_glue("Fisher's exast test p-values for coverage ≥{cov}"),
-        device = 'svg',
         width = 672,
         attribs = list(
           `data-method` = method,
