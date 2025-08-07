@@ -42,8 +42,9 @@ we're not doing multiple large data-access processes
 
 <script>
 // update any visible figures that were set to a different coverage cutoff
-function update_figures(parent,value) {
+function update_figures(parent,value,tab_change) {
   $(parent).find('.fig-container:visible').each(function() {
+    // update plotly figures
     if ($(this).data('cutoff') != value) {
       const fig_id = $(this).data('fig');
       const json_prefix = $(this).data('json-prefix');
@@ -54,6 +55,17 @@ function update_figures(parent,value) {
       $(this).data('cutoff',value);
     }
   });
+  
+  // update fisher plots
+  var fc = $('.fisher-container:visible');
+  if (fc.data('cutoff') != value) {
+    var vis = fc.find('.visible-fisher');
+    var hid = fc.find('.hidden-fisher');
+    vis.find('.fisher-plotz').detach().appendTo(hid);
+    hid.find(`.fisher-plotz-${value}`).detach().appendTo(vis).show();
+    
+    fc.data('cutoff',value);
+  }
 }
 
 // setup
@@ -68,7 +80,7 @@ $(function() {
     tickInterval: `r params$nf$coverage_cutoff_step`,
     slide: function (e,ui) {
       $('.coverage-label').html(`Coverage cutoff: &#x2265;${ui.value}`)
-      update_figures(document,ui.value);
+      update_figures(document,ui.value,false);
     }
   });
 
@@ -78,7 +90,7 @@ $(function() {
   $(document).on('shown.bs.tab', function (e) {
     var target = $(e.target.ariaControlsElements);
     var val = $("#coverage-slider").labeledslider('value');
-    update_figures(target,val);
+    update_figures(target,val,true);
   });
 
 });
@@ -1100,7 +1112,7 @@ methods %>%
 ```
 
 ```{r fisher, results='asis', eval=show_fisher}
-cat("# Fisher test plots {.tabset}\n\n")
+cat("# Fisher's test plots {.tabset .fisher-tabs}\n\n")
 print(h5(tags$small(
   "Fisher test results are presented as static plots since these datasets can get huge, making plotly go slow or crash."
 )))
@@ -1108,47 +1120,6 @@ print(h5(tags$small(
 nothing <- fisher_data[,{
   fishr <- .SD
   cat(str_glue("## {method}\n\n"))
-  
-  # TODO: fix cutoff slider for fisher plots
-  # make slider for coverage cutoff
-  cutoff_slider <- div(
-    class="coverage-slider",
-    tagList(
-      tags$label(
-        id=str_glue("fisher-cutoff-label-{method}"),
-        `for`=str_glue("fisher-cutoff-sel-{method}"),
-        str_glue('Minimum coverage: {params$nf$min_coverage_cutoff}')
-      ),
-      div(
-        id=str_glue("fisher-cutoff-sel-{method}")
-      )
-    )
-  )
-  print(cutoff_slider)
-  
-  cutoff_script <- tags$script(HTML(str_glue(
-    '
-      $(function() {{
-        $("#fisher-cutoff-sel-{method}").labeledslider({{
-          min: {params$nf$min_coverage_cutoff},
-          max: {params$nf$max_coverage_cutoff},
-          step: {params$nf$coverage_cutoff_step},
-          tickInterval: {params$nf$coverage_cutoff_step},
-          change: function (e, ui) {{
-            $(".fisher-plotz-{method}").hide();
-            $(`#fisher-plot-{method}-${{ui.value}}`).show();
-            $("#fisher-cutoff-label-{method}").text(`Minimum coverage: ${{ui.value}}`);
-          }},
-          slide: function (e, ui) {{
-            $(".fisher-plotz-{method}").hide();
-            $(`#fisher-plot-{method}-${{ui.value}}`).show();
-            $("#fisher-cutoff-label-{method}").text(`Minimum coverage: ${{ui.value}}`);
-          }}
-        }});
-     }});
-    '
-  )))
-  print(cutoff_script)
   
   print(h6(HTML("Points above red line indicate <em>p</em> &lt; 0.05.")))
   
@@ -1170,17 +1141,35 @@ nothing <- fisher_data[,{
       plotTag(
         fig,
         alt=str_glue("Fisher's exast test p-values for coverage ≥{cov}"),
+        device = 'svg',
         width = 672,
         attribs = list(
+          `data-method` = method,
+          `data-cutoff` = cov,
           id = str_glue("fisher-plot-{method}-{cov}"),
-          class = str_glue('fisher-plotz-{method}'),
+          class = c(str_glue('fisher-plotz'),str_glue('fisher-plotz-{cov}')),
           style = disp
         )
       )
     })
-  print(div(
-    id='fisher-container',
-    tagList( figs )
-  ))
+  
+  # for some reason enclosing this in another div()
+  # call makes the image tags show as text
+  cat('<div class="fisher-container">')
+  print(
+    tagList(
+      div(
+        class = 'visible-fisher',
+        tagList(figs[1])
+      ),
+      div(
+        class = 'hidden-fisher',
+        style = 'display: none',
+        tagList(figs[-1])
+      )
+    )
+  )
+  cat('</div>')
+  
 },by=method]
 ```
