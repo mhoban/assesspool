@@ -40,11 +40,7 @@ process POOLFSTAT_FST {
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
         poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
         optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tibble')),sep='.')")
-        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 
@@ -59,11 +55,7 @@ process POOLFSTAT_FST {
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
         poolfstat: \$(Rscript -e "cat(paste(packageVersion('poolfstat')),sep='.')")
         optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tibble')),sep='.')")
-        stringr: \$(Rscript -e "cat(paste(packageVersion('stringr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 }

@@ -9,8 +9,10 @@ process GRENEDALF_SYNC {
 
     input:
     tuple val(meta), path(vcf), path(index)
+    tuple val(meta), path(sync)
     tuple val(meta), path(fasta)
     tuple val(meta), path(fai)
+    tuple val(meta), path(sample_map)
 
     output:
     tuple val(meta), path("*.sync"), emit: sync
@@ -24,14 +26,18 @@ process GRENEDALF_SYNC {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def fasta_arg = fasta ? "--reference-genome-fasta ${fasta}" : ""
     def fai_arg = fai ? "--reference-genome-fai ${fai}" : ""
+    def input_opt = vcf ? '--vcf-path' : (sync ? '--sync-path' : '')
+    def input_arg = vcf ?: (sync ?: '')
+    def remap_arg = sample_map ? "--rename-samples-list ${sample_map}" : ""
     """
     grenedalf sync \\
         --threads ${task.cpus} \\
         ${args} \\
         ${fasta_arg} \\
         ${fai_arg} \\
-        --file-prefix "${prefix}_" \\
-        --vcf-path ${vcf}
+        ${remap_arg} \\
+        ${input_opt} ${input_arg} \\
+        --file-prefix "${prefix}_"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

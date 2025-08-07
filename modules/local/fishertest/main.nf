@@ -33,13 +33,8 @@ process FISHERTEST {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        optparse: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        janitor: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('janitor')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('matrixstats')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 
@@ -52,13 +47,8 @@ process FISHERTEST {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
-        optparse: \$(Rscript -e "cat(paste(packageVersion('dplyr')),sep='.')")
-        tibble: \$(Rscript -e "cat(paste(packageVersion('tidyr')),sep='.')")
-        janitor: \$(Rscript -e "cat(paste(packageVersion('readr')),sep='.')")
-        readr: \$(Rscript -e "cat(paste(packageVersion('janitor')),sep='.')")
-        purrr: \$(Rscript -e "cat(paste(packageVersion('purrr')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
-        dplyr: \$(Rscript -e "cat(paste(packageVersion('matrixstats')),sep='.')")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 }

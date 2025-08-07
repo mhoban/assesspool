@@ -73,17 +73,17 @@ workflow PIPELINE_INITIALISATION {
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
         .map {
-            meta, vcf, index, ref, pools, pool_sizes ->
+            meta, input, index, ref, pools, pool_sizes ->
                 def pp = pools ? pools.split(/,/) : []
                 def ps = (pool_sizes instanceof Number) ? [pool_sizes] : pool_sizes.split(/,/)
                 if (pp.size() != ps.size()) {
                     if (pp && ps.size() != 1) {
                         error "Pool sizes must either be a single number or a list the same length as `pools`"
                     } else if (pp && ps.size() == 1) {
-                        ps = [1..pp.size()].collect{ ps[0] }
+                        ps = (1..pp.size()).collect{ ps[0] }
                     }
                 }
-                return [ meta + [ pools: pp, pool_sizes: ps, rename: !(!pools) ],  vcf, index, ref  ]
+                return [ meta + [ pools: pp, pool_sizes: ps, rename: !(!pools) ],  input, index, ref  ]
         }
         .set { ch_samplesheet }
 

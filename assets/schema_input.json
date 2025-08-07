@@ -13,12 +13,12 @@
                 "errorMessage": "Project name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "vcf": {
+            "input": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.vcf(\\.gz)?$",
-                "errorMessage": "VCF file must be provided in the `vcf` column, cannot contain spaces, and must have extension '.vcf' or '.vcf.gz'"
+                "pattern": "^\\S+\\.(vcf|sync)(\\.gz)?$",
+                "errorMessage": "Input file must be provided in the `input` column, cannot contain spaces, and must have extension '.vcf', '.sync', 'vcf.gz', or '.sync.gz'"
             },
             "vcf_index": {
                 "type": "string",
@@ -42,6 +42,6 @@
                 "errorMessage": "Must provide pool size(s), either a single number or a comma-separated list"
             }
         },
-        "required": ["project","vcf", "reference","pool_sizes"]
+        "required": ["project","input", "reference","pool_sizes"]
     }
 }

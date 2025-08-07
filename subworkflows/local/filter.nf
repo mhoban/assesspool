@@ -6,11 +6,19 @@ include { BCFTOOLS_VIEW as BCFTOOLS_COMPRESS_INDEX_FILTERED } from '../../module
 workflow FILTER {
 
     take:
-    ch_vcf // channel: [ val(meta), [ vcf ] ]
+    ch_input // channel: [ val(meta), [ vcf ] ]
 
     main:
 
     ch_versions = Channel.empty()
+
+    ch_input = ch_input
+        .branch { meta, file, index ->
+            vcf: meta.format == 'vcf'
+            sync: meta.format == 'sync'
+        }
+
+    ch_vcf = ch_input.vcf
 
 
     // decide whether to run bcftools filter
@@ -26,10 +34,8 @@ workflow FILTER {
             .map{ meta, vcf -> [ meta.id, meta, vcf ] }
             .join( BCFTOOLS_FILTER.out.tbi.map{ meta, index -> [ meta.id, index ] } )
             .map{ id, meta, vcf, index -> [ meta, vcf, index ] }
-            .set{ ch_vcf2 }
+            .set{ ch_vcf }
         ch_versions = ch_versions.mix(BCFTOOLS_FILTER.out.versions.first())
-    } else {
-        ch_vcf2 = ch_vcf
     }
 
     // decide whether to run vcftools filter
@@ -37,42 +43,39 @@ workflow FILTER {
             params.max_mean_depth || params.hwe_cutoff )
 
     if (vcft) {
-        VCFTOOLS_FILTER ( ch_vcf2.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
+        VCFTOOLS_FILTER ( ch_vcf.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
         ch_versions = ch_versions.mix(VCFTOOLS_FILTER.out.versions.first())
         // TODO: re-compress and index output
         VCFTOOLS_FILTER.out.vcf
             .map{ meta, vcf -> [ meta, vcf, [] ] }
-            .set{ ch_vcf3 }
-    } else {
-        ch_vcf3 = ch_vcf2
+            .set{ ch_vcf }
     }
 
     if (params.thin_snps) {
-        THIN_SNPS( ch_vcf3.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
+        THIN_SNPS( ch_vcf.map{ meta, vcf, index -> [ meta, vcf ] }, [], [] )
         ch_versions = ch_versions.mix(THIN_SNPS.out.versions.first())
 
         THIN_SNPS.out.vcf
             .map{ meta, vcf -> [ meta, vcf, [] ] }
-            .set{ ch_vcf4 }
-    } else {
-        ch_vcf4 = ch_vcf3
+            .set{ ch_vcf }
     }
 
     if (vcft || params.thin_snps) {
         // re-index and compress if vcftools was run
-        BCFTOOLS_COMPRESS_INDEX_FILTERED( ch_vcf4, [], [], [] ).vcf
+        BCFTOOLS_COMPRESS_INDEX_FILTERED( ch_vcf, [], [], [] ).vcf
             .map{ meta,vcf -> [ meta.id, meta, vcf ] }
             .join( BCFTOOLS_COMPRESS_INDEX_FILTERED.out.tbi.map{ meta,index -> [ meta.id, index ] } )
             .map{ id, meta, vcf, index -> [ meta, vcf, index ] }
-            .set{ ch_vcf_final }
+            .set{ ch_vcf }
         ch_versions = ch_versions.mix(BCFTOOLS_COMPRESS_INDEX_FILTERED.out.versions.first())
-    } else {
-        ch_vcf_final = ch_vcf4
     }
+
+    ch_vcf.mix( ch_input.sync ).set{ ch_output }
+
 
     // TODO: visualize filter results? (rmd section 'filter_visualization')
     emit:
-    vcf      = ch_vcf_final
+    output      = ch_output
     versions = ch_versions                     // channel: [ versions.yml ]
 }
 

@@ -133,7 +133,7 @@ if (calc_method == "grenedalf") {
 
 # pivot frequency table longer
 freq_snps[,c(grep('^TOTAL',names(freq_snps))) := NULL ]
-freq_snps <- melt(freq_snps, measure = measure(pool,measure,pattern = r'[^([^.]+)\.(.+)$]'),value.name = 'count')
+freq_snps <- melt(freq_snps, measure = measure(pool,measure,pattern = r'[^(.+)\.([A-Z_]+)$]'),value.name = 'count')
 freq_snps <- dcast(freq_snps,CHROM+POS+pool ~ measure,value.var = "count")[order(CHROM,POS,pool)]
 setnames(freq_snps,1:2,new=tolower)
 
@@ -165,6 +165,6 @@ setcolorder(
   c('chrom','pos','pop1','pop2','fst','avg_min_cov','method','alt_cnt.pop1','alt_cnt.pop2',
     'ref_cnt.pop1','ref_cnt.pop2','depth.pop1','depth.pop2','total.alt_cnt','total.ref_cnt','total.depth')
 )
-
+  
 outfile <- sprintf("%s/%s_fst_frequency.tsv",outdir,file_prefix)
 fwrite(combined,outfile,sep="\t")

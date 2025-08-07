@@ -1,6 +1,6 @@
 process EXTRACT_SEQUENCES {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_single_mem'
 
     conda "${moduleDir}/environment.yml"
     // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -34,7 +34,10 @@ process EXTRACT_SEQUENCES {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        extractsequences: \$(extractsequences --version)
+        R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        Rsamtools: \$(Rscript -e "cat(paste(packageVersion('Rsamtools')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 
@@ -47,7 +50,10 @@ process EXTRACT_SEQUENCES {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        extractsequences: \$(extractsequences --version)
+        R: \$(Rscript -e "cat(paste(R.version[c('major','minor')],collapse='.'))")
+        optparse: \$(Rscript -e "cat(paste(packageVersion('optparse')),sep='.')")
+        Rsamtools: \$(Rscript -e "cat(paste(packageVersion('Rsamtools')),sep='.')")
+        data.table: \$(Rscript -e "cat(paste(packageVersion('data.table')),sep='.')")
     END_VERSIONS
     """
 }
