@@ -28,7 +28,7 @@ workflow POSTPROCESS {
 
     // collapse pairwise fisher tests into single files
     ch_fisher_collapsed = ch_fisher
-        .collectFile( keepHeader: true, sort: true, storeDir: 'output/fishertest'  ){ meta, fish -> [ "${meta.id}.fisher", fish ] }
+        .collectFile( keepHeader: true, sort: true, storeDir: 'output/fisher/combined'  ){ meta, fish -> [ "${meta.id}.fisher", fish ] }
         .map{ [ it.baseName, it ] }
 
     // join them back to meta tags
