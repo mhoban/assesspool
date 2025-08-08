@@ -1,0 +1,70 @@
+# general options
+outdir: output
+
+# filtering options
+filter:  true
+keep_indel:  false
+keep_multiallelic:  false
+
+# vcftools filters
+max_missing:  0.5
+min_minor_allele_count:  2
+min_mean_depth:  3
+max_mean_depth:  500
+hwe_cutoff: null
+thin_snps:  null
+
+# vcflib filters
+min_mapping_quality:  30
+min_mapping_quality_ref:  30
+min_mapping_ratio:  0.75
+max_mapping_ratio:  1.25
+read_balance_left:  0
+read_balance_right:  0
+quality_depth_ratio:  0.25
+mispaired_reads:  true
+# min_pools recommended value: 1/2 number of pools
+min_pools:  null
+min_depth:  30
+max_allele_length:  10
+min_quality:  30
+variant_type:  snp # snp, ins, del, complex
+min_alternate_observations:  2
+
+# visualization/output options
+visualize_filters: true
+filter_only: false
+min_coverage_cutoff:  10
+max_coverage_cutoff:  70
+coverage_cutoff_step:  10
+extract_sequences:  true
+fst_cutoff:  0.7
+
+#fst calculations
+popoolation2:  false
+grenedalf:  true
+poolfstat:  true
+missing_zeroes:  true
+window_size:  1
+window_stride:  0
+window_type:  'single'
+window_region:  false
+window_region_list:  null
+window_region_skip_empty:  false
+
+# popoolation/poolfstat
+min_count:  2
+min_coverage:  10
+max_coverage:  1000
+min_covered_fraction:  1
+suppress_noninformative:  false
+min_minor_allele_frequency:  0
+
+# grenedalf
+match_allele_count:  true
+fst_method:  'kofler'
+all_fst_columns:  false
+
+# fisher test
+fisher_test: true
+fisher_test_popoolation: true
