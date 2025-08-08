@@ -1105,7 +1105,12 @@ methods %>%
         yaxis = list(title = str_glue("F<sub>st</sub> ({ytitle})"))
       ) %>%
       # disappear the legends
-      hide_guides()
+      hide_guides() %>%
+      config(toImageButtonOptions = list(
+        format = 'svg',
+        width = 900,
+        height = 600
+      ))
     
     print(tagList(fig))
   })
