@@ -3,10 +3,9 @@ process FISHERTEST {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container 'fishbotherer/fishertest:1.0.2'
-    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-    //     'https://depot.galaxyproject.org/singularity/mulled-v2-dd9299acb4f2a6af9c57792a648c9b309383d16a:006ebbae55f43556724857309229bb9ee9b5f648-0':
-    //     'biocontainers/mulled-v2-dd9299acb4f2a6af9c57792a648c9b309383d16a:006ebbae55f43556724857309229bb9ee9b5f648-0' }"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/mulled-v2-91e4157032c00e9d9ac47f9837a67abee8f5afc2:7945c7dcdead60dfcbf06b19f4758634d6ad230a-0':
+        'biocontainers/mulled-v2-91e4157032c00e9d9ac47f9837a67abee8f5afc2:7945c7dcdead60dfcbf06b19f4758634d6ad230a-0' }"
 
     input:
     tuple val(meta), val(pools), path(frequency)

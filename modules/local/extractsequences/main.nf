@@ -3,10 +3,9 @@ process EXTRACT_SEQUENCES {
     label 'process_single_mem'
 
     conda "${moduleDir}/environment.yml"
-    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-    //     'https://depot.galaxyproject.org/singularity/mulled-v2-61c59287265e27f2c4589cfc90013ef6c2c6acf1:fb3e48060a8c0e5108b1b60a2ad7e090cfb9eee5-0':
-    //     'biocontainers/mulled-v2-61c59287265e27f2c4589cfc90013ef6c2c6acf1:fb3e48060a8c0e5108b1b60a2ad7e090cfb9eee5-0' }"
-    container 'fishbotherer/extractr:1.0.0'
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/mulled-v2-24c2519e6f79268102473627bccca112fa9f03b6:b565a85a493491c260acda69b780ef6ffa1cda87-0':
+        'biocontainers/mulled-v2-24c2519e6f79268102473627bccca112fa9f03b6:b565a85a493491c260acda69b780ef6ffa1cda87-0' }"
 
     input:
     tuple val(meta), path(fasta), path(fai)

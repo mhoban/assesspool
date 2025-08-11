@@ -4,6 +4,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - bioconda::bioconductor-rsamtools=2.22.0
   - conda-forge::r-optparse=1.7.5
   - conda-forge::r-data.table=1.17.8
-  - bioconda::bioconductor-rsamtools=2.22.0
